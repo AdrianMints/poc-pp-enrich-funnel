@@ -1,14 +1,21 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/",
       "destination": "/prestaprenda-enrich/index.html"
     },
     {
-      "source": "/(.*)",
-      "destination": "/prestaprenda-enrich/$1"
+      "source": "/(.*)\\.html",
+      "destination": "/prestaprenda-enrich/$1.html"
+    },
+    {
+      "source": "/css/(.*)",
+      "destination": "/prestaprenda-enrich/css/$1"
+    },
+    {
+      "source": "/js/(.*)",
+      "destination": "/prestaprenda-enrich/js/$1"
     }
   ]
 }
