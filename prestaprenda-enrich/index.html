@@ -109,6 +109,9 @@
       { sku: 'PUL-8830', title: 'Pulsera dijes variados',           categoria: 'Pulsera',   kilataje: '14', peso: '6.0', precioLista: '$8,500',  precioVenta: '$7,750',  descuento: '8.8%'  },
       { sku: 'PUL-9940', title: 'Pulsera eslabones ancla',          categoria: 'Pulsera',   kilataje: '14', peso: '7.6', precioLista: '$10,300', precioVenta: '$9,400',  descuento: '8.7%'  },
       { sku: 'PUL-0051', title: 'Pulsera oro rosa eslabones',       categoria: 'Pulsera',   kilataje: '14', peso: '7.2', precioLista: '$9,800',  precioVenta: '$8,950',  descuento: '8.7%'  },
+      { sku: 'REL-1401', title: 'Reloj acero esfera negra 42mm',    categoria: 'Reloj',     marca: 'Citizen', modelo: 'BM7330-59E', kilataje: 'N/A', peso: '112.0', precioLista: '$7,900',  precioVenta: '$7,200',  descuento: '8.9%'  },
+      { sku: 'REL-2402', title: 'Reloj cronografo deportivo',        categoria: 'Reloj',     marca: 'Casio',   modelo: 'EFR-556L-1AV', kilataje: 'N/A', peso: '96.0',  precioLista: '$6,800',  precioVenta: '$6,150',  descuento: '9.6%'  },
+      { sku: 'REL-3503', title: 'Reloj clasico correa piel',         categoria: 'Reloj',     marca: 'Seiko',   modelo: 'SUR449P1', kilataje: 'N/A', peso: '84.0',  precioLista: '$8,600',  precioVenta: '$7,850',  descuento: '8.7%'  },
       { sku: 'TOB-0101', title: 'Tobillera con dijes variados',     categoria: 'Tobillera', kilataje: '14', peso: '5.8', precioLista: '$7,600',  precioVenta: '$6,900',  descuento: '9.2%'  },
       { sku: 'TOB-0202', title: 'Tobillera simple eslabones',       categoria: 'Tobillera', kilataje: '10', peso: '4.2', precioLista: '$5,100',  precioVenta: '$4,650',  descuento: '8.8%'  }
     ];
@@ -116,7 +119,8 @@
     /* Extended catalog used by the search path (includes already-enriched items). */
     var skuCatalog = pendingItems.concat([
       { sku: 'ANI-9900', title: 'Anillo tres piedras oro blanco', categoria: 'Anillo', kilataje: '18', peso: '5.1', precioLista: '$15,200', precioVenta: '$13,800', descuento: '9.2%' },
-      { sku: 'CAD-9911', title: 'Cadena rope dorada 55cm',       categoria: 'Cadena', kilataje: '14', peso: '6.8', precioLista: '$8,100',  precioVenta: '$7,400',  descuento: '8.6%' }
+      { sku: 'CAD-9911', title: 'Cadena rope dorada 55cm',       categoria: 'Cadena', kilataje: '14', peso: '6.8', precioLista: '$8,100',  precioVenta: '$7,400',  descuento: '8.6%' },
+      { sku: 'REL-9901', title: 'Reloj cuarzo esfera azul',      categoria: 'Reloj',  marca: 'Invicta', modelo: 'Pro Diver 8926OB', kilataje: 'N/A', peso: '118.0', precioLista: '$9,400',  precioVenta: '$8,600',  descuento: '8.5%' }
     ]);
 
     var selectedItem = null;
@@ -168,6 +172,9 @@
       return {
         sku: item.sku,
         categoria: item.categoria,
+        marca: item.marca || '',
+        modelo: item.modelo || '',
+        origenSucursal: item.categoria === 'Reloj' ? 'Sucursal' : '',
         kilataje: item.kilataje,
         peso: item.peso,
         precioLista: item.precioLista,

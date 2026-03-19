@@ -15,6 +15,9 @@ const StateKeys = {
 function buildFallbackAiResult() {
   const preview = getState(StateKeys.previewData, {});
   const category = preview.categoria || getState(StateKeys.category, 'Anillo');
+  const isWatch = category === 'Reloj';
+  const marca = preview.marca || 'Marca no especificada';
+  const modelo = preview.modelo || 'Modelo no especificado';
   const kilataje = preview.kilataje || '14';
   const svg = function (label) {
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
@@ -27,8 +30,12 @@ function buildFallbackAiResult() {
   };
 
   return {
-    title: category + ' de oro amarillo de ' + kilataje + ' kilates',
-    description: 'Pieza de joyería en condiciones visibles de uso con acabado brillante y silueta bien definida. Este contenido es una referencia visual temporal para la demo del funnel.',
+    title: isWatch
+      ? 'Reloj ' + marca + ' ' + modelo
+      : category + ' de oro amarillo de ' + kilataje + ' kilates',
+    description: isWatch
+      ? 'Reloj con marca y modelo precargados desde sucursal. Este contenido es una referencia visual temporal para la demo del funnel.'
+      : 'Pieza de joyería en condiciones visibles de uso con acabado brillante y silueta bien definida. Este contenido es una referencia visual temporal para la demo del funnel.',
     variants: [svg('Variante 1'), svg('Variante 2'), svg('Variante 3'), svg('Variante 4')]
   };
 }

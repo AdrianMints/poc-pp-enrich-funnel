@@ -263,19 +263,33 @@
 
     function buildRegeneratedTitle(prompt) {
       var category = getState(StateKeys.category, 'Joya');
+      var preview = getState(StateKeys.previewData, {});
       var key = (prompt || '').trim();
       var style = key ? key.split(/[,.]/)[0].trim() : 'acabado premium';
       var styleChunk = style ? ' · ' + style.slice(0, 28) : '';
+      if (category === 'Reloj') {
+        var marca = preview.marca || 'Marca';
+        var modelo = preview.modelo || 'Modelo';
+        return 'Reloj ' + marca + ' ' + modelo + styleChunk;
+      }
       return category + ' en oro' + styleChunk;
     }
 
     function buildRegeneratedDescription(prompt) {
       var category = getState(StateKeys.category, 'pieza');
       var sku = getState(StateKeys.sku, 'SKU-DEMO-001');
+      var preview = getState(StateKeys.previewData, {});
       var promptText = (prompt || '').trim();
       var direction = promptText
         ? 'Toma sugerida: ' + promptText + '. '
         : 'Fotografía sugerida en fondo neutro con luz suave. ';
+      if (category === 'Reloj') {
+        var marca = preview.marca || 'Marca no especificada';
+        var modelo = preview.modelo || 'Modelo no especificado';
+        return 'Reloj ' + marca + ' ' + modelo + ' con datos precargados de sucursal. ' +
+          direction +
+          'Referencia visual: ' + sku + '.';
+      }
       return 'Diseño de ' + category.toLowerCase() + ' elaborado en oro, ideal para catálogo digital. ' +
         direction +
         'Referencia visual: ' + sku + '.';

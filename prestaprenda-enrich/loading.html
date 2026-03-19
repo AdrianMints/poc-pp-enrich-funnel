@@ -72,12 +72,19 @@
       var preview = getState(StateKeys.previewData, {});
       var details = getState(StateKeys.details, {});
       var category = preview.categoria || getState(StateKeys.category, 'Prenda');
+      var isWatch = category === 'Reloj';
       var tipo = (details.tipoOro && details.tipoOro[0]) ? details.tipoOro[0].toLowerCase() : 'amarillo';
       var kilataje = preview.kilataje || '14';
+      var marca = preview.marca || 'Marca no especificada';
+      var modelo = preview.modelo || 'Modelo no especificado';
 
       return {
-        title: category + ' de oro ' + tipo + ' de ' + kilataje + ' kilates',
-        description: 'Pieza de joyería en excelentes condiciones, ideal para uso diario o regalo. Presenta un acabado brillante y detalles bien definidos que resaltan su diseño.',
+        title: isWatch
+          ? 'Reloj ' + marca + ' ' + modelo
+          : category + ' de oro ' + tipo + ' de ' + kilataje + ' kilates',
+        description: isWatch
+          ? 'Reloj en excelentes condiciones, con marca y modelo precargados desde sucursal para acelerar su publicacion. Presenta estetica cuidada y lectura clara de caratula y caja.'
+          : 'Pieza de joyería en excelentes condiciones, ideal para uso diario o regalo. Presenta un acabado brillante y detalles bien definidos que resaltan su diseño.',
         variants: [photos[0] || placeholder(1), photos[1] || placeholder(2), photos[2] || placeholder(3), photos[3] || placeholder(4)]
       };
     }

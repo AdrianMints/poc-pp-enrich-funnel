@@ -44,9 +44,13 @@
     function buildMockApiData() {
       var sku = getState(StateKeys.sku, 'SKU-DEMO-001');
       var category = getState(StateKeys.category, 'Anillo');
+      var isWatch = category === 'Reloj';
       return {
         sku: sku,
         categoria: category,
+        marca: isWatch ? 'Citizen' : '',
+        modelo: isWatch ? 'BM7330-59E' : '',
+        origenSucursal: isWatch ? 'Sucursal' : '',
         kilataje: '14',
         peso: '6.8',
         precioLista: '$8,950',
@@ -67,6 +71,14 @@
         ['Precio venta', data.precioVenta],
         ['Descuento %', data.descuento]
       ];
+
+      if (data.categoria === 'Reloj') {
+        items.splice(2, 0,
+          ['Marca', data.marca || 'No disponible'],
+          ['Modelo', data.modelo || 'No disponible'],
+          ['Origen', data.origenSucursal || 'Sucursal']
+        );
+      }
 
       grid.innerHTML = '';
       items.forEach(function (entry) {
