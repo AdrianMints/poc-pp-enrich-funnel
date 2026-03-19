@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Presta Prenda Enrich - Inicio</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div></div>
+      <div class="logo">Presta Prenda</div>
+      <div></div>
+    </header>
+
+    <section class="content space-y">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Enriquecimiento</span>
+          <h1 style="font-size: 22px; margin-top: 10px;">¿Qué prenda enriquecemos?</h1>
+        </div>
+      </div>
+
+      <!-- Hero conteo de pendientes -->
+      <div class="hero-stat">
+        <div class="label">Prendas pendientes de enriquecer</div>
+          <div id="pendingCount" class="value">42</div>
+        <div style="font-size:13px;opacity:0.72;margin-top:4px;">Busca por SKU o selecciona una de la lista</div>
+      </div>
+
+      <!-- Buscador con autocomplete -->
+      <div>
+        <label class="field-label" for="skuInput">Buscar prenda</label>
+        <div class="autocomplete">
+          <input id="skuInput" class="input" type="text" placeholder="SKU..." autocomplete="off">
+        </div>
+      </div>
+
+      <!-- Divisor -->
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;">
+        <div style="height:1px;background:var(--color-border);"></div>
+        <span class="text-secondary small">Búsca por SKU o selecciona una de la lista.</span>
+        <div style="height:1px;background:var(--color-border);"></div>
+      </div>
+
+      <!-- Lista de pendientes del sistema -->
+      <div>
+        <p class="field-label" style="margin-bottom:10px;">Pendientes del sistema</p>
+        <div id="pendingList" class="helper-grid"></div>
+      </div>
+    </section>
+
+    <div class="sticky-bar">
+      <button id="continueBtn" class="btn btn-primary" type="button" disabled>Selecciona una prenda para continuar</button>
+    </div>
+  </main>
+
+  <script src="js/nav.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/tutorial.js"></script>
+  <script>
+    var streamRef = null;
+    var pendingObserver = null;
+    var currentFilterQuery = '';
+
+    /* Catalog mock — pendingItems simulates what the system flags for enrichment. */
+    var pendingItems = [
+      { sku: 'ADE-0901', title: 'Aderezo 3 piezas oro amarillo',     categoria: 'Aderezo',   kilataje: '14', peso: '14.2',precioLista: '$17,500', precioVenta: '$15,900', descuento: '9.1%'  },
+      { sku: 'ADE-1012', title: 'Aderezo nupcial 5 piezas',         categoria: 'Aderezo',   kilataje: '18', peso: '22.0',precioLista: '$28,400', precioVenta: '$25,800', descuento: '9.2%'  },
+      { sku: 'ANI-1042', title: 'Anillo alianza clásica',           categoria: 'Anillo',    kilataje: '14', peso: '2.5', precioLista: '$3,900',  precioVenta: '$3,550',  descuento: '9.0%'  },
+      { sku: 'ANI-2098', title: 'Anillo banda diamantada',          categoria: 'Anillo',    kilataje: '14', peso: '2.8', precioLista: '$4,850',  precioVenta: '$4,350',  descuento: '10.3%' },
+      { sku: 'ANI-3300', title: 'Anillo compromiso diamante',       categoria: 'Anillo',    kilataje: '18', peso: '4.0', precioLista: '$12,800', precioVenta: '$11,500', descuento: '10.2%' },
+      { sku: 'ANI-4501', title: 'Anillo con circonia oro blanco',   categoria: 'Anillo',    kilataje: '10', peso: '3.2', precioLista: '$5,490',  precioVenta: '$4,890',  descuento: '10.9%' },
+      { sku: 'ANI-5602', title: 'Anillo solitario oro amarillo',    categoria: 'Anillo',    kilataje: '14', peso: '3.5', precioLista: '$6,100',  precioVenta: '$5,500',  descuento: '9.8%'  },
+      { sku: 'ANI-6703', title: 'Anillo tipo sello grabado',        categoria: 'Anillo',    kilataje: '10', peso: '4.8', precioLista: '$5,200',  precioVenta: '$4,700',  descuento: '9.6%'  },
+      { sku: 'ARE-1103', title: 'Aretes flor coral esmaltado',      categoria: 'Aretes',    kilataje: '10', peso: '2.4', precioLista: '$3,650',  precioVenta: '$3,300',  descuento: '9.6%'  },
+      { sku: 'ARE-2204', title: 'Aretes flor esmaltada multicolor', categoria: 'Aretes',    kilataje: '10', peso: '2.9', precioLista: '$4,200',  precioVenta: '$3,800',  descuento: '9.5%'  },
+      { sku: 'ARE-3305', title: 'Aretes gota perla cultivada',      categoria: 'Aretes',    kilataje: '10', peso: '2.2', precioLista: '$3,400',  precioVenta: '$3,100',  descuento: '8.8%'  },
+      { sku: 'ARE-4406', title: 'Aretes lágrima zirconia',          categoria: 'Aretes',    kilataje: '10', peso: '2.6', precioLista: '$3,900',  precioVenta: '$3,550',  descuento: '9.0%'  },
+      { sku: 'ARR-5014', title: 'Arracadas argolla grande lisa',    categoria: 'Arracadas', kilataje: '14', peso: '5.3', precioLista: '$7,100',  precioVenta: '$6,450',  descuento: '9.2%'  },
+      { sku: 'ARR-6125', title: 'Arracadas clásicas medianas',      categoria: 'Arracadas', kilataje: '10', peso: '4.1', precioLista: '$6,300',  precioVenta: '$5,990',  descuento: '4.9%'  },
+      { sku: 'ARR-7021', title: 'Arracadas mariposa filigrana',     categoria: 'Arracadas', kilataje: '14', peso: '4.8', precioLista: '$6,800',  precioVenta: '$6,150',  descuento: '9.6%'  },
+      { sku: 'BRO-3308', title: 'Broqueles circonia cuadrada',      categoria: 'Broqueles', kilataje: '14', peso: '2.1', precioLista: '$4,100',  precioVenta: '$3,750',  descuento: '8.5%'  },
+      { sku: 'BRO-4415', title: 'Broqueles corazón circonia',       categoria: 'Broqueles', kilataje: '14', peso: '2.3', precioLista: '$4,400',  precioVenta: '$4,000',  descuento: '9.1%'  },
+      { sku: 'BRO-5521', title: 'Broqueles oro amarillo mini',      categoria: 'Broqueles', kilataje: '10', peso: '1.6', precioLista: '$2,950',  precioVenta: '$2,650',  descuento: '10.1%' },
+      { sku: 'BRO-6632', title: 'Broqueles perla cultivada pequeños',categoria:'Broqueles', kilataje: '10', peso: '1.8', precioLista: '$3,100',  precioVenta: '$2,800',  descuento: '9.7%'  },
+      { sku: 'CAD-3401', title: 'Cadena ancla mediana 50cm',        categoria: 'Cadena',    kilataje: '14', peso: '9.8', precioLista: '$11,200', precioVenta: '$10,200', descuento: '8.9%'  },
+      { sku: 'CAD-5812', title: 'Cadena box fina 40cm',             categoria: 'Cadena',    kilataje: '10', peso: '3.0', precioLista: '$3,800',  precioVenta: '$3,450',  descuento: '9.2%'  },
+      { sku: 'CAD-6104', title: 'Cadena figaro gruesa 50cm',        categoria: 'Cadena',    kilataje: '14', peso: '11.5',precioLista: '$13,600', precioVenta: '$12,400', descuento: '8.8%'  },
+      { sku: 'CAD-7215', title: 'Cadena tejido cartier',            categoria: 'Cadena',    kilataje: '14', peso: '8.1', precioLista: '$9,900',  precioVenta: '$8,950',  descuento: '9.6%'  },
+      { sku: 'CAD-8316', title: 'Cadena trigo redonda 40cm',        categoria: 'Cadena',    kilataje: '14', peso: '7.2', precioLista: '$8,700',  precioVenta: '$7,900',  descuento: '9.2%'  },
+      { sku: 'CAD-9427', title: 'Cadena veneciana fina 45cm',       categoria: 'Cadena',    kilataje: '10', peso: '4.2', precioLista: '$5,200',  precioVenta: '$4,750',  descuento: '8.7%'  },
+      { sku: 'COL-1120', title: 'Collar corazón oro rosado',        categoria: 'Collar',    kilataje: '10', peso: '3.8', precioLista: '$5,800',  precioVenta: '$5,200',  descuento: '10.3%' },
+      { sku: 'COL-2230', title: 'Collar cruz oro amarillo',         categoria: 'Collar',    kilataje: '10', peso: '3.2', precioLista: '$4,600',  precioVenta: '$4,150',  descuento: '9.8%'  },
+      { sku: 'COL-3340', title: 'Collar gargantilla lisa',          categoria: 'Collar',    kilataje: '14', peso: '5.0', precioLista: '$7,200',  precioVenta: '$6,550',  descuento: '9.0%'  },
+      { sku: 'COL-4450', title: 'Collar oro blanco con dije',       categoria: 'Collar',    kilataje: '14', peso: '6.4', precioLista: '$8,400',  precioVenta: '$7,790',  descuento: '7.3%'  },
+      { sku: 'DIJ-0101', title: 'Dije estrella oro amarillo',       categoria: 'Dije',      kilataje: '10', peso: '1.2', precioLista: '$1,800',  precioVenta: '$1,620',  descuento: '10.0%' },
+      { sku: 'DIJ-0202', title: 'Dije letra inicial grabada',       categoria: 'Dije',      kilataje: '10', peso: '1.5', precioLista: '$2,200',  precioVenta: '$2,000',  descuento: '9.1%'  },
+      { sku: 'ESC-4419', title: 'Esclava bebé grabado nombre',      categoria: 'Esclava',   kilataje: '10', peso: '5.5', precioLista: '$7,300',  precioVenta: '$6,600',  descuento: '9.6%'  },
+      { sku: 'ESC-5520', title: 'Esclava doble vuelta trenzada',    categoria: 'Esclava',   kilataje: '14', peso: '10.2',precioLista: '$12,500', precioVenta: '$11,400', descuento: '8.8%'  },
+      { sku: 'ESC-6621', title: 'Esclava grabada unisex',           categoria: 'Esclava',   kilataje: '14', peso: '9.1', precioLista: '$11,200', precioVenta: '$10,250', descuento: '8.5%'  },
+      { sku: 'ESC-7732', title: 'Esclava infantil bautizo',         categoria: 'Esclava',   kilataje: '10', peso: '4.8', precioLista: '$6,100',  precioVenta: '$5,550',  descuento: '9.0%'  },
+      { sku: 'MED-0301', title: 'Medalla San Judas Tadeo',          categoria: 'Medalla',   kilataje: '14', peso: '3.6', precioLista: '$5,400',  precioVenta: '$4,900',  descuento: '9.3%'  },
+      { sku: 'MED-0402', title: 'Medalla Virgen de Guadalupe',      categoria: 'Medalla',   kilataje: '10', peso: '2.8', precioLista: '$3,900',  precioVenta: '$3,550',  descuento: '9.0%'  },
+      { sku: 'PUL-7740', title: 'Pulsera bolinhas oro rosado',      categoria: 'Pulsera',   kilataje: '10', peso: '5.2', precioLista: '$6,900',  precioVenta: '$6,300',  descuento: '8.7%'  },
+      { sku: 'PUL-8830', title: 'Pulsera dijes variados',           categoria: 'Pulsera',   kilataje: '14', peso: '6.0', precioLista: '$8,500',  precioVenta: '$7,750',  descuento: '8.8%'  },
+      { sku: 'PUL-9940', title: 'Pulsera eslabones ancla',          categoria: 'Pulsera',   kilataje: '14', peso: '7.6', precioLista: '$10,300', precioVenta: '$9,400',  descuento: '8.7%'  },
+      { sku: 'PUL-0051', title: 'Pulsera oro rosa eslabones',       categoria: 'Pulsera',   kilataje: '14', peso: '7.2', precioLista: '$9,800',  precioVenta: '$8,950',  descuento: '8.7%'  },
+      { sku: 'TOB-0101', title: 'Tobillera con dijes variados',     categoria: 'Tobillera', kilataje: '14', peso: '5.8', precioLista: '$7,600',  precioVenta: '$6,900',  descuento: '9.2%'  },
+      { sku: 'TOB-0202', title: 'Tobillera simple eslabones',       categoria: 'Tobillera', kilataje: '10', peso: '4.2', precioLista: '$5,100',  precioVenta: '$4,650',  descuento: '8.8%'  }
+    ];
+
+    /* Extended catalog used by the search path (includes already-enriched items). */
+    var skuCatalog = pendingItems.concat([
+      { sku: 'ANI-9900', title: 'Anillo tres piedras oro blanco', categoria: 'Anillo', kilataje: '18', peso: '5.1', precioLista: '$15,200', precioVenta: '$13,800', descuento: '9.2%' },
+      { sku: 'CAD-9911', title: 'Cadena rope dorada 55cm',       categoria: 'Cadena', kilataje: '14', peso: '6.8', precioLista: '$8,100',  precioVenta: '$7,400',  descuento: '8.6%' }
+    ]);
+
+    var selectedItem = null;
+
+    /* Pagination state for the pending list. */
+    var PAGE_SIZE = 20;
+    var listPage = 0;
+    var sortedPendingItems = pendingItems.slice().sort(function (a, b) {
+      return a.title.localeCompare(b.title, 'es-MX');
+    });
+
+    function normalizeText(value) {
+      return (value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+    }
+
+    function itemMatchesQuery(item, query) {
+      var normalizedQuery = normalizeText(query);
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      var sku = normalizeText(item.sku);
+      if (sku.indexOf(normalizedQuery) === 0) {
+        return true;
+      }
+
+      var words = normalizeText(item.title).split(/[^a-z0-9]+/);
+      return words.some(function (word) {
+        return word && word.indexOf(normalizedQuery) === 0;
+      });
+    }
+
+    function getFilteredPendingItems() {
+      var normalized = normalizeText(currentFilterQuery);
+      if (!normalized) {
+        return sortedPendingItems;
+      }
+      return sortedPendingItems.filter(function (item) {
+        return itemMatchesQuery(item, normalized);
+      });
+    }
+
+    /* Serializes an item to the previewData shape consumed by preview.html. */
+    function buildPreviewData(item) {
+      return {
+        sku: item.sku,
+        categoria: item.categoria,
+        kilataje: item.kilataje,
+        peso: item.peso,
+        precioLista: item.precioLista,
+        precioVenta: item.precioVenta,
+        descuento: item.descuento
+      };
+    }
+
+    /* Updates CTA button state based on whether an item has been chosen. */
+    function refreshCta() {
+      var btn = document.getElementById('continueBtn');
+      if (selectedItem) {
+        btn.textContent = 'Enriquecer ' + selectedItem.sku;
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      } else {
+        btn.textContent = 'Selecciona una prenda para continuar';
+        btn.disabled = true;
+        btn.style.opacity = '0.45';
+      }
+    }
+
+    /* Marks an item as selected across both list and search paths. */
+    function selectItem(item) {
+      selectedItem = item;
+      setState(StateKeys.sku, item.sku);
+      setState(StateKeys.category, item.categoria);
+      setState(StateKeys.previewData, buildPreviewData(item));
+      document.querySelectorAll('.pending-item').forEach(function (el) {
+        el.classList.toggle('selected', el.dataset.sku === item.sku);
+      });
+      document.getElementById('skuInput').value = item.sku;
+      refreshCta();
+    }
+
+    /* Builds a single pending item card element. */
+    function buildPendingCard(item) {
+      var card = document.createElement('button');
+      card.className = 'pending-item';
+      card.type = 'button';
+      card.dataset.sku = item.sku;
+      card.innerHTML =
+        '<div class="pending-item-left">' +
+          '<span class="pending-item-sku">' + item.sku + '</span>' +
+          '<span class="pending-item-title">' + item.title + '</span>' +
+        '</div>' +
+        '<div class="pending-item-right">' +
+          '<span class="badge badge-navy">' + item.categoria + '</span>' +
+          '<span class="pending-item-price">' + item.precioVenta + '</span>' +
+        '</div>';
+      card.addEventListener('click', function () { selectItem(item); });
+      return card;
+    }
+
+    /* Appends the next page of items before the scroll sentinel. */
+    function loadMorePending() {
+      var list = document.getElementById('pendingList');
+      var sentinel = document.getElementById('listSentinel');
+      if (!sentinel) { return; }
+
+      var source = getFilteredPendingItems();
+      var start = listPage * PAGE_SIZE;
+      var slice = source.slice(start, start + PAGE_SIZE);
+      slice.forEach(function (item) {
+        list.insertBefore(buildPendingCard(item), sentinel);
+      });
+      listPage++;
+      if (listPage * PAGE_SIZE >= source.length) {
+        sentinel.remove();
+      }
+    }
+
+    function initInfiniteScroll() {
+      var list = document.getElementById('pendingList');
+      var sentinel = document.getElementById('listSentinel');
+      if (!sentinel || !('IntersectionObserver' in window)) {
+        return;
+      }
+      if (pendingObserver) {
+        pendingObserver.disconnect();
+      }
+      pendingObserver = new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting) { loadMorePending(); }
+      }, { root: list, threshold: 0 });
+      pendingObserver.observe(sentinel);
+    }
+
+    /* Initialises the list with pagination and infinite scroll. */
+    function initPendingList() {
+      var list = document.getElementById('pendingList');
+      list.innerHTML = '<div id="listSentinel" style="height:1px;visibility:hidden;"></div>';
+      listPage = 0;
+      loadMorePending();
+      initInfiniteScroll();
+    }
+
+    /* Re-renders list as the user types instead of using a dropdown. */
+    function applyPendingFilter(query) {
+      currentFilterQuery = query || '';
+      var list = document.getElementById('pendingList');
+      if (pendingObserver) {
+        pendingObserver.disconnect();
+      }
+
+      if (!currentFilterQuery.trim()) {
+        initPendingList();
+        return;
+      }
+
+      var source = getFilteredPendingItems();
+      list.innerHTML = '';
+      if (source.length === 0) {
+        list.innerHTML = '<div class="demo-note" style="padding:10px 12px;">Sin coincidencias. Intenta con otro término.</div>';
+        return;
+      }
+
+      source.forEach(function (item) {
+        list.appendChild(buildPendingCard(item));
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var catalogSize = pendingItems.length;
+      var storedCatalogSize = getState('pp.pendingCatalogSize', null);
+      var pending = getState(StateKeys.pendingCount, catalogSize);
+
+      if (storedCatalogSize !== catalogSize) {
+        pending = catalogSize;
+        setState(StateKeys.pendingCount, pending);
+        setState('pp.pendingCatalogSize', catalogSize);
+      }
+
+      document.getElementById('pendingCount').textContent = pending;
+
+      initPendingList();
+      refreshCta();
+
+      var skuInput = document.getElementById('skuInput');
+      skuInput.addEventListener('input', function () {
+        applyPendingFilter(skuInput.value);
+      });
+
+      document.getElementById('continueBtn').addEventListener('click', function () {
+        if (!selectedItem) {
+          return;
+        }
+        goTo('preview.html');
+      });
+    });
+  </script>
+</body>
+</html>

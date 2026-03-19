@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Presta Prenda Enrich - Preview</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <button class="back-btn" aria-label="Atrás" onclick="goBack('index.html')">&#8249;</button>
+      <div class="logo">Presta Prenda</div>
+      <div></div>
+    </header>
+
+    <section class="content space-y">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Paso 2 · Preview API</span>
+          <h1 style="font-size: 22px; margin-top: 10px;">Datos detectados</h1>
+        </div>
+      </div>
+      <span id="categoryBadge" class="badge badge-navy">Categoría</span>
+
+      <article class="card space-y">
+        <div class="banner banner-blue">Auto-llenado desde Presta Prenda</div>
+        <div id="infoGrid" class="info-grid"></div>
+      </article>
+    </section>
+
+    <div class="sticky-bar">
+      <button id="continueBtn" class="btn btn-primary" type="button">Continuar</button>
+    </div>
+  </main>
+
+  <script src="js/nav.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/tutorial.js"></script>
+  <script>
+    /* Returns mock API data shape for preview screen while backend is pending. */
+    function buildMockApiData() {
+      var sku = getState(StateKeys.sku, 'SKU-DEMO-001');
+      var category = getState(StateKeys.category, 'Anillo');
+      return {
+        sku: sku,
+        categoria: category,
+        kilataje: '14',
+        peso: '6.8',
+        precioLista: '$8,950',
+        precioVenta: '$7,450',
+        descuento: '16.8%'
+      };
+    }
+
+    /* Renders read-only information chips using label-value pairs. */
+    function renderInfoChips(data) {
+      var grid = document.getElementById('infoGrid');
+      var items = [
+        ['SKU', data.sku],
+        ['Categoría', data.categoria],
+        ['Kilataje', data.kilataje],
+        ['Peso (g)', data.peso],
+        ['Precio lista', data.precioLista],
+        ['Precio venta', data.precioVenta],
+        ['Descuento %', data.descuento]
+      ];
+
+      grid.innerHTML = '';
+      items.forEach(function (entry) {
+        var chip = document.createElement('div');
+        chip.className = 'info-chip';
+        chip.innerHTML = '<div class="label">' + entry[0] + '</div><div class="value">' + entry[1] + '</div>';
+        grid.appendChild(chip);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var data = buildMockApiData();
+      setState(StateKeys.previewData, data);
+      setState(StateKeys.category, data.categoria);
+
+      document.getElementById('categoryBadge').textContent = data.categoria;
+      renderInfoChips(data);
+
+      document.getElementById('continueBtn').addEventListener('click', function () {
+        goTo('photos.html');
+      });
+    });
+  </script>
+</body>
+</html>

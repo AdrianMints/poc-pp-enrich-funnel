@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Presta Prenda Enrich - Detalles</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <button class="back-btn" aria-label="Atrás" onclick="goBack('photos.html')">&#8249;</button>
+      <div class="logo">Presta Prenda</div>
+      <div class="step-dots" aria-label="Paso 2 de 4">
+        <span class="step-dot done"></span>
+        <span class="step-dot current"></span>
+        <span class="step-dot"></span>
+        <span class="step-dot"></span>
+      </div>
+    </header>
+
+    <section class="content space-y">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Paso 4 · Inspección</span>
+          <h1 style="font-size: 22px; margin-top: 10px;">Datos del valuador</h1>
+        </div>
+      </div>
+      <article class="card space-y">
+        <div>
+          <label class="field-label">Género</label>
+          <div id="genderSegment" class="segmented">
+            <button class="segmented-btn" data-value="Unisex" type="button">Unisex</button>
+            <button class="segmented-btn" data-value="Dama" type="button">Dama</button>
+            <button class="segmented-btn" data-value="Caballero" type="button">Caballero</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="field-label">Tipo de oro</label>
+          <div id="goldChips" class="chips">
+            <button class="chip" data-value="Amarillo" type="button">Amarillo</button>
+            <button class="chip" data-value="Blanco" type="button">Blanco</button>
+            <button class="chip" data-value="Rojo-Rosa" type="button">Rojo-Rosa</button>
+          </div>
+        </div>
+
+        <div id="measurementWrap" style="display:none;">
+          <label id="measurementLabel" class="field-label" for="measurementInput">Medida</label>
+          <input id="measurementInput" class="input" type="number" inputmode="decimal" placeholder="">
+        </div>
+      </article>
+    </section>
+
+    <div class="sticky-bar">
+      <button id="aiBtn" class="btn btn-primary" type="button">&#10022; Generar con IA</button>
+    </div>
+  </main>
+
+  <script src="js/nav.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/tutorial.js"></script>
+  <script>
+    var details = {
+      genero: 'Unisex',
+      tipoOro: [],
+      measurement: ''
+    };
+
+    /* Resolves dynamic measurement behavior based on jewelry category. */
+    function getMeasurementConfig(category) {
+      var ring = ['Anillo'];
+      var lengthBased = ['Cadena', 'Collar', 'Esclava', 'Pulsera'];
+      var none = ['Aretes', 'Arracadas', 'Broqueles', 'Aderezo'];
+
+      if (ring.indexOf(category) >= 0) {
+        return { show: true, label: 'Talla de anillo', min: 1, max: 13, placeholder: '1 - 13' };
+      }
+      if (lengthBased.indexOf(category) >= 0) {
+        return { show: true, label: 'Largo en cm', min: 1, max: 999, placeholder: 'Ej. 45' };
+      }
+      if (none.indexOf(category) >= 0) {
+        return { show: false };
+      }
+      return { show: false };
+    }
+
+    /* Persists current form-like selections without blocking navigation. */
+    function saveDetails() {
+      setState(StateKeys.details, details);
+    }
+
+    function paintGender() {
+      document.querySelectorAll('#genderSegment .segmented-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.value === details.genero);
+      });
+    }
+
+    function paintGold() {
+      document.querySelectorAll('#goldChips .chip').forEach(function (btn) {
+        btn.classList.toggle('active', details.tipoOro.indexOf(btn.dataset.value) >= 0);
+      });
+    }
+
+    function renderMeasurement() {
+      var category = getState(StateKeys.category, 'Anillo');
+      var config = getMeasurementConfig(category);
+      var wrap = document.getElementById('measurementWrap');
+      if (!config.show) {
+        wrap.style.display = 'none';
+        return;
+      }
+
+      wrap.style.display = 'block';
+      var input = document.getElementById('measurementInput');
+      var label = document.getElementById('measurementLabel');
+      label.textContent = config.label;
+      input.min = String(config.min);
+      input.max = String(config.max);
+      input.placeholder = config.placeholder;
+      input.value = details.measurement || '';
+
+      input.addEventListener('input', function () {
+        details.measurement = input.value;
+        saveDetails();
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      details = getState(StateKeys.details, details);
+      if (!details || typeof details !== 'object') {
+        details = { genero: 'Unisex', tipoOro: [], measurement: '' };
+      }
+      if (!Array.isArray(details.tipoOro)) {
+        details.tipoOro = [];
+      }
+
+      paintGender();
+      paintGold();
+      renderMeasurement();
+
+      document.querySelectorAll('#genderSegment .segmented-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          details.genero = btn.dataset.value;
+          paintGender();
+          saveDetails();
+        });
+      });
+
+      document.querySelectorAll('#goldChips .chip').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var value = btn.dataset.value;
+          var index = details.tipoOro.indexOf(value);
+          if (index >= 0) {
+            details.tipoOro.splice(index, 1);
+          } else {
+            details.tipoOro.push(value);
+          }
+          paintGold();
+          saveDetails();
+        });
+      });
+
+      document.getElementById('aiBtn').addEventListener('click', function () {
+        goTo('loading.html');
+      });
+    });
+  </script>
+</body>
+</html>

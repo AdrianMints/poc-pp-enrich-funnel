@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Presta Prenda Enrich - Review</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <button class="back-btn" aria-label="Atrás" onclick="goBack('loading.html')">&#8249;</button>
+      <div class="logo">Presta Prenda</div>
+      <div class="step-dots" aria-label="Paso 4 de 4">
+        <span class="step-dot done"></span>
+        <span class="step-dot done"></span>
+        <span class="step-dot done"></span>
+        <span class="step-dot current"></span>
+      </div>
+    </header>
+
+    <section class="content space-y">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Paso 6 · Revisión</span>
+          <h1 style="font-size:22px; margin-top:10px;">Revisión final</h1>
+        </div>
+      </div>
+
+      <article class="card space-y">
+        <div>
+          <label class="field-label" for="regenPrompt">Prompt para regenerar imágenes</label>
+          <input id="regenPrompt" class="input" type="text" placeholder="Ej. fondo blanco, luz suave, vista frontal, alta nitidez">
+        </div>
+
+        <div id="variantRow" class="variant-row"></div>
+
+        <div class="review-actions-row">
+          <button id="regenAllBtn" class="btn btn-secondary" type="button" disabled>Regenerar 4 variantes</button>
+        </div>
+      </article>
+
+      <article class="card space-y">
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <label class="field-label" for="titleInput" style="margin:0;">Título</label>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button id="regenTitleBtn" class="btn btn-secondary" type="button" style="min-height:30px;padding:0 10px;font-size:12px;">Regenerar</button>
+              <span id="titleIa" class="badge badge-ia">IA</span>
+            </div>
+          </div>
+          <input id="titleInput" class="input" type="text" value="">
+        </div>
+
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <label class="field-label" for="descriptionInput" style="margin:0;">Descripción</label>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button id="regenDescBtn" class="btn btn-secondary" type="button" style="min-height:30px;padding:0 10px;font-size:12px;">Regenerar</button>
+              <span id="descIa" class="badge badge-ia">IA</span>
+            </div>
+          </div>
+          <textarea id="descriptionInput" class="textarea" rows="3"></textarea>
+        </div>
+      </article>
+    </section>
+
+    <div class="sticky-bar">
+      <button id="publishBtn" class="btn btn-primary" type="button">Publicar en catálogo</button>
+    </div>
+
+    <div id="imagePreviewModal" class="image-preview-modal" hidden>
+      <div class="image-preview-backdrop" data-close-preview="true"></div>
+      <div class="image-preview-dialog" role="dialog" aria-modal="true" aria-label="Vista completa de imagen">
+        <button id="closePreviewBtn" class="image-preview-close" type="button" aria-label="Cerrar vista completa">&times;</button>
+        <img id="previewImage" src="" alt="Vista completa">
+      </div>
+    </div>
+  </main>
+
+  <script src="js/nav.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/tutorial.js"></script>
+  <script>
+    var aiResult = {
+      title: '',
+      description: '',
+      variants: []
+    };
+    var VARIANT_COUNT = 4;
+    var isRegenInProgress = false;
+
+    function escapeXml(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
+
+    /* Creates a deterministic mock image influenced by prompt + index. */
+    function createGeneratedVariant(prompt, index) {
+      var promptLabel = (prompt || '').trim() || 'Estudio limpio';
+      var promptPreview = promptLabel.slice(0, 42);
+      var seed = Date.now() + (index * 97);
+      var hue = 22 + (seed % 24);
+      var bgA = 'hsl(' + String(hue) + ', 82%, 93%)';
+      var bgB = 'hsl(' + String(hue + 8) + ', 88%, 84%)';
+      var ring = 'hsl(' + String(hue - 8) + ', 72%, 32%)';
+      var shine = 'hsl(' + String(hue + 20) + ', 92%, 98%)';
+      var svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="560" viewBox="0 0 400 560">' +
+          '<defs>' +
+            '<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">' +
+              '<stop offset="0%" stop-color="' + bgA + '"/>' +
+              '<stop offset="100%" stop-color="' + bgB + '"/>' +
+            '</linearGradient>' +
+          '</defs>' +
+          '<rect width="400" height="560" fill="url(#bg)"/>' +
+          '<circle cx="200" cy="250" r="110" fill="none" stroke="' + ring + '" stroke-width="24"/>' +
+          '<ellipse cx="245" cy="205" rx="44" ry="20" fill="' + shine + '" opacity="0.55"/>' +
+          '<text x="26" y="486" font-size="20" font-family="Arial, sans-serif" fill="#1A2B5E">Variante ' + String(index + 1) + '</text>' +
+          '<text x="26" y="516" font-size="14" font-family="Arial, sans-serif" fill="#39456E">' + escapeXml(promptPreview) + '</text>' +
+        '</svg>';
+      return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+    }
+
+    function computeVariantSeed(prompt, index) {
+      var input = (prompt || '') + '|' + String(index) + '|' + String(Date.now());
+      var hash = 0;
+      for (var i = 0; i < input.length; i += 1) {
+        hash = ((hash << 5) - hash + input.charCodeAt(i)) | 0;
+      }
+      return Math.abs(hash);
+    }
+
+    function createSubtleVariantFromSource(sourceSrc, prompt, index) {
+      return new Promise(function (resolve) {
+        if (!sourceSrc) {
+          resolve(createGeneratedVariant(prompt, index));
+          return;
+        }
+
+        var image = new Image();
+        image.onload = function () {
+          var width = image.naturalWidth || 400;
+          var height = image.naturalHeight || 560;
+          var canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          var ctx = canvas.getContext('2d');
+          var seed = computeVariantSeed(prompt, index);
+
+          var brightness = 0.96 + ((seed % 11) / 100);
+          var contrast = 0.95 + (((seed >> 3) % 13) / 100);
+          var saturation = 0.97 + (((seed >> 6) % 11) / 100);
+          var zoom = 0.985 + (((seed >> 9) % 31) / 1000);
+          var rotation = ((((seed >> 12) % 41) - 20) / 10) * (Math.PI / 180);
+          var offsetX = (((seed >> 15) % 9) - 4);
+          var offsetY = (((seed >> 18) % 9) - 4);
+          var warmth = (((seed >> 21) % 11) - 5);
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+
+          ctx.save();
+          ctx.translate((width / 2) + offsetX, (height / 2) + offsetY);
+          ctx.rotate(rotation);
+          ctx.scale(zoom, zoom);
+          ctx.filter = 'brightness(' + String(brightness) + ') contrast(' + String(contrast) + ') saturate(' + String(saturation) + ')';
+          ctx.drawImage(image, -width / 2, -height / 2, width, height);
+          ctx.restore();
+
+          if (warmth !== 0) {
+            var alpha = 0.015 * Math.abs(warmth);
+            ctx.fillStyle = warmth > 0
+              ? 'rgba(255, 168, 120, ' + String(alpha) + ')'
+              : 'rgba(120, 165, 255, ' + String(alpha) + ')';
+            ctx.fillRect(0, 0, width, height);
+          }
+
+          resolve(canvas.toDataURL('image/jpeg', 0.93));
+        };
+
+        image.onerror = function () {
+          resolve(createGeneratedVariant(prompt, index));
+        };
+
+        image.src = sourceSrc;
+      });
+    }
+
+    function ensureVariantCount() {
+      if (!Array.isArray(aiResult.variants)) {
+        aiResult.variants = [];
+      }
+      aiResult.variants = aiResult.variants.slice(0, VARIANT_COUNT);
+      while (aiResult.variants.length < VARIANT_COUNT) {
+        aiResult.variants.push(createGeneratedVariant('', aiResult.variants.length));
+      }
+    }
+
+    function persistAiResult() {
+      setState(StateKeys.aiResult, aiResult);
+    }
+
+    function hasPromptValue() {
+      var promptInput = document.getElementById('regenPrompt');
+      return !!(promptInput && promptInput.value && promptInput.value.trim());
+    }
+
+    function updateImageRegenButtonsState() {
+      var enabled = hasPromptValue() && !isRegenInProgress;
+      var regenAllBtn = document.getElementById('regenAllBtn');
+      if (regenAllBtn) {
+        regenAllBtn.disabled = !enabled;
+      }
+      document.querySelectorAll('.regen-one-btn').forEach(function (button) {
+        button.disabled = !enabled;
+      });
+    }
+
+    function setRegenerationBusy(isBusy) {
+      isRegenInProgress = isBusy;
+      updateImageRegenButtonsState();
+    }
+
+    function openImagePreview(src, alt) {
+      var modal = document.getElementById('imagePreviewModal');
+      var preview = document.getElementById('previewImage');
+      preview.src = src;
+      preview.alt = alt || 'Vista completa';
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeImagePreview() {
+      var modal = document.getElementById('imagePreviewModal');
+      var preview = document.getElementById('previewImage');
+      modal.hidden = true;
+      preview.src = '';
+      document.body.style.overflow = '';
+    }
+
+    function bindPreviewModal() {
+      var modal = document.getElementById('imagePreviewModal');
+      var closeBtn = document.getElementById('closePreviewBtn');
+      closeBtn.addEventListener('click', closeImagePreview);
+      modal.addEventListener('click', function (event) {
+        if (event.target.closest('[data-close-preview="true"]')) {
+          closeImagePreview();
+        }
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.hidden) {
+          closeImagePreview();
+        }
+      });
+    }
+
+    function buildRegeneratedTitle(prompt) {
+      var category = getState(StateKeys.category, 'Joya');
+      var key = (prompt || '').trim();
+      var style = key ? key.split(/[,.]/)[0].trim() : 'acabado premium';
+      var styleChunk = style ? ' · ' + style.slice(0, 28) : '';
+      return category + ' en oro' + styleChunk;
+    }
+
+    function buildRegeneratedDescription(prompt) {
+      var category = getState(StateKeys.category, 'pieza');
+      var sku = getState(StateKeys.sku, 'SKU-DEMO-001');
+      var promptText = (prompt || '').trim();
+      var direction = promptText
+        ? 'Toma sugerida: ' + promptText + '. '
+        : 'Fotografía sugerida en fondo neutro con luz suave. ';
+      return 'Diseño de ' + category.toLowerCase() + ' elaborado en oro, ideal para catálogo digital. ' +
+        direction +
+        'Referencia visual: ' + sku + '.';
+    }
+
+    /* Draws generated variant cards with per-item regeneration actions. */
+    function renderVariants() {
+      var row = document.getElementById('variantRow');
+      row.innerHTML = '';
+      var enabled = hasPromptValue() && !isRegenInProgress;
+      aiResult.variants.forEach(function (src, index) {
+        var card = document.createElement('article');
+        card.className = 'variant-card';
+        card.innerHTML =
+          '<img src="' + src + '" alt="Variante ' + String(index + 1) + '">' +
+          '<div class="variant-footer">' +
+            '<button class="btn btn-secondary regen-one-btn" type="button" data-index="' + String(index) + '" ' + (!enabled ? 'disabled' : '') + '>Regenerar esta</button>' +
+          '</div>';
+        row.appendChild(card);
+      });
+
+      row.querySelectorAll('.regen-one-btn').forEach(function (button) {
+        button.addEventListener('click', function () {
+          if (!hasPromptValue()) {
+            return;
+          }
+          if (isRegenInProgress) {
+            return;
+          }
+          var index = Number(button.dataset.index || 0);
+          var prompt = document.getElementById('regenPrompt').value || '';
+          var source = aiResult.variants[index];
+          setRegenerationBusy(true);
+          createSubtleVariantFromSource(source, prompt, index)
+            .then(function (nextVariant) {
+              aiResult.variants[index] = nextVariant;
+              persistAiResult();
+              renderVariants();
+            })
+            .finally(function () {
+              setRegenerationBusy(false);
+            });
+        });
+      });
+
+      row.querySelectorAll('.variant-card img').forEach(function (image, index) {
+        image.addEventListener('click', function () {
+          openImagePreview(image.src, 'Variante ' + String(index + 1));
+        });
+      });
+    }
+
+    function bindRegeneration() {
+      var regenAllBtn = document.getElementById('regenAllBtn');
+      var regenTitleBtn = document.getElementById('regenTitleBtn');
+      var regenDescBtn = document.getElementById('regenDescBtn');
+      var titleInput = document.getElementById('titleInput');
+      var descriptionInput = document.getElementById('descriptionInput');
+      var titleBadge = document.getElementById('titleIa');
+      var descBadge = document.getElementById('descIa');
+      var regenPrompt = document.getElementById('regenPrompt');
+
+      regenAllBtn.addEventListener('click', function () {
+        if (!hasPromptValue()) {
+          return;
+        }
+        if (isRegenInProgress) {
+          return;
+        }
+        var prompt = document.getElementById('regenPrompt').value || '';
+        var currentSources = aiResult.variants.slice(0, VARIANT_COUNT);
+        setRegenerationBusy(true);
+        Promise.all(currentSources.map(function (source, index) {
+          return createSubtleVariantFromSource(source, prompt, index);
+        }))
+          .then(function (nextVariants) {
+            aiResult.variants = nextVariants;
+            persistAiResult();
+            renderVariants();
+          })
+          .finally(function () {
+            setRegenerationBusy(false);
+          });
+      });
+
+      regenPrompt.addEventListener('input', function () {
+        updateImageRegenButtonsState();
+      });
+
+      regenTitleBtn.addEventListener('click', function () {
+        var prompt = document.getElementById('regenPrompt').value || '';
+        aiResult.title = buildRegeneratedTitle(prompt);
+        titleInput.value = aiResult.title;
+        titleBadge.style.display = 'inline-flex';
+        persistAiResult();
+      });
+
+      regenDescBtn.addEventListener('click', function () {
+        var prompt = document.getElementById('regenPrompt').value || '';
+        aiResult.description = buildRegeneratedDescription(prompt);
+        descriptionInput.value = aiResult.description;
+        descBadge.style.display = 'inline-flex';
+        persistAiResult();
+      });
+    }
+
+    /* Hides IA badges after first user edit and persists edited content. */
+    function bindEditing() {
+      var titleInput = document.getElementById('titleInput');
+      var descInput = document.getElementById('descriptionInput');
+      var titleBadge = document.getElementById('titleIa');
+      var descBadge = document.getElementById('descIa');
+
+      titleInput.addEventListener('input', function () {
+        titleBadge.style.display = 'none';
+        aiResult.title = titleInput.value;
+        setState(StateKeys.aiResult, aiResult);
+      });
+
+      descInput.addEventListener('input', function () {
+        descBadge.style.display = 'none';
+        aiResult.description = descInput.value;
+        setState(StateKeys.aiResult, aiResult);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      aiResult = getState(StateKeys.aiResult, aiResult);
+      if (!aiResult || typeof aiResult !== 'object') {
+        aiResult = { title: '', description: '', variants: [] };
+      }
+      if (!Array.isArray(aiResult.variants) || aiResult.variants.length === 0) {
+        aiResult = buildFallbackAiResult();
+        setState(StateKeys.aiResult, aiResult);
+      }
+
+      document.getElementById('regenPrompt').value = '';
+
+      document.getElementById('titleInput').value = aiResult.title || '';
+      document.getElementById('descriptionInput').value = aiResult.description || '';
+
+      ensureVariantCount();
+      persistAiResult();
+
+      renderVariants();
+      updateImageRegenButtonsState();
+      bindEditing();
+      bindRegeneration();
+      bindPreviewModal();
+
+      document.getElementById('publishBtn').addEventListener('click', function () {
+        var pending = getState(StateKeys.pendingCount, 42);
+        setState(StateKeys.pendingCount, Math.max(0, pending - 1));
+        goTo('success.html');
+      });
+    });
+  </script>
+</body>
+</html>

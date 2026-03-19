@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Presta Prenda Enrich - Fotos</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <button class="back-btn" aria-label="Atrás" onclick="goBack('preview.html')">&#8249;</button>
+      <div class="logo">Presta Prenda</div>
+      <div class="step-dots" aria-label="Paso 1 de 4">
+        <span class="step-dot current"></span>
+        <span class="step-dot"></span>
+        <span class="step-dot"></span>
+        <span class="step-dot"></span>
+      </div>
+    </header>
+
+    <section class="content space-y">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Paso 3 · Captura guiada</span>
+          <h1 id="photoTitle" style="font-size:22px; margin-top:10px;">Foto 1 de 4</h1>
+        </div>
+      </div>
+      <article class="card space-y">
+        <p class="text-secondary small">Captura estas 4 referencias para que la IA tenga vista completa de la prenda.</p>
+        <div id="referenceGuide" class="reference-guide"></div>
+        <ul class="hint-list">
+          <li>Usa fondo limpio y una sola prenda en cuadro.</li>
+          <li>Evita reflejos directos y sombras fuertes.</li>
+          <li>Asegura enfoque antes de capturar.</li>
+        </ul>
+      </article>
+
+      <div class="camera-shell">
+        <video id="photoVideo" class="camera-video" playsinline muted autoplay></video>
+      </div>
+
+      <div class="capture-wrap">
+        <button id="captureBtn" class="capture-btn" type="button" aria-label="Capturar"></button>
+      </div>
+
+      <div id="thumbStrip" class="thumb-strip"></div>
+      <div id="qualityCheckNotice" class="quality-check-notice" style="display:none;"></div>
+      <p id="cameraWarning" class="text-secondary small" style="display:none;">No se pudo abrir la cámara. Puedes continuar.</p>
+    </section>
+
+    <div class="sticky-bar">
+      <button id="continueBtn" class="btn btn-primary" type="button">Continuar</button>
+    </div>
+  </main>
+
+  <script src="js/nav.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/tutorial.js"></script>
+  <script>
+    var streamRef = null;
+    var photoIndex = 0;
+    var capturedPhotos = [];
+    var qualityCheckStage = 0;
+    var rejectedPhotoIndex = null;
+    var isQualityChecking = false;
+    var qualityCheckTimer = null;
+    var PHOTO_REFERENCE_STEPS = [
+      {
+        label: 'Frontal completa',
+        instruction: 'Muestra la prenda completa de frente, centrada y sin recortes.',
+        visualHint: 'Vista frontal centrada'
+      },
+      {
+        label: 'Perfil lateral',
+        instruction: 'Toma un costado para ver volumen, grosor y curvatura.',
+        visualHint: 'Lateral para profundidad'
+      },
+      {
+        label: 'Acercamiento detalle',
+        instruction: 'Haz zoom al detalle principal: piedra, textura o acabado.',
+        visualHint: 'Macro de detalle clave'
+      },
+      {
+        label: 'Sello o cierre',
+        instruction: 'Captura marca, quilataje, broche o sistema de cierre visible.',
+        visualHint: 'Sello, marca o cierre'
+      }
+    ];
+
+    function escapeXml(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
+
+    function getNextPhotoIndex() {
+      for (var i = 0; i < 4; i += 1) {
+        if (!capturedPhotos[i]) {
+          return i;
+        }
+      }
+      return 4;
+    }
+
+    function areAllPhotosCaptured() {
+      return getNextPhotoIndex() >= 4;
+    }
+
+    function setQualityNotice(message, type) {
+      var notice = document.getElementById('qualityCheckNotice');
+      if (!notice) {
+        return;
+      }
+
+      if (!message) {
+        notice.textContent = '';
+        notice.style.display = 'none';
+        notice.className = 'quality-check-notice';
+        return;
+      }
+
+      notice.textContent = message;
+      notice.style.display = 'block';
+      notice.className = 'quality-check-notice ' + (type || 'info');
+    }
+
+    function updateContinueState() {
+      var continueBtn = document.getElementById('continueBtn');
+      if (!continueBtn) {
+        return;
+      }
+
+      var canContinue = areAllPhotosCaptured() && qualityCheckStage === 2 && !isQualityChecking;
+      continueBtn.disabled = !canContinue;
+    }
+
+    function withQualityCheckDelay(onResult) {
+      if (isQualityChecking) {
+        return;
+      }
+
+      isQualityChecking = true;
+      setQualityNotice('Verificacion IA: analizando las 4 fotos...', 'info');
+      updateContinueState();
+
+      if (qualityCheckTimer) {
+        window.clearTimeout(qualityCheckTimer);
+      }
+
+      qualityCheckTimer = window.setTimeout(function () {
+        isQualityChecking = false;
+        qualityCheckTimer = null;
+        onResult();
+        updateContinueState();
+      }, 1000);
+    }
+
+    function runQualityCheckIfReady() {
+      if (!areAllPhotosCaptured()) {
+        updateContinueState();
+        return;
+      }
+
+      if (isQualityChecking) {
+        updateContinueState();
+        return;
+      }
+
+      if (qualityCheckStage === 0) {
+        withQualityCheckDelay(function () {
+          rejectedPhotoIndex = 1;
+          qualityCheckStage = 1;
+          capturedPhotos[rejectedPhotoIndex] = null;
+          normalizeCapturedPhotos();
+          persistPhotos();
+          setState('pp.photoQualityStage', qualityCheckStage);
+          setState('pp.photoRejectedIndex', rejectedPhotoIndex);
+          renderThumbs();
+          setQualityNotice('Verificacion IA: la foto 2 salio desenfocada. Vuelvela a tomar para continuar.', 'warning');
+        });
+        return;
+      }
+
+      if (qualityCheckStage === 1) {
+        withQualityCheckDelay(function () {
+          qualityCheckStage = 2;
+          rejectedPhotoIndex = null;
+          setState('pp.photoQualityStage', qualityCheckStage);
+          setState('pp.photoRejectedIndex', rejectedPhotoIndex);
+          setQualityNotice('Verificacion IA completada: las 4 fotos pasaron calidad.', 'success');
+        });
+        return;
+      }
+
+      updateContinueState();
+    }
+
+    function normalizeCapturedPhotos() {
+      var normalized = [];
+      for (var i = 0; i < 4; i += 1) {
+        normalized.push(capturedPhotos[i] || null);
+      }
+      capturedPhotos = normalized;
+      photoIndex = getNextPhotoIndex();
+    }
+
+    function buildReferenceImage(index, step) {
+      var hue = 24 + (index * 16);
+      var bgA = 'hsl(' + String(hue) + ', 86%, 94%)';
+      var bgB = 'hsl(' + String(hue + 10) + ', 84%, 86%)';
+      var stroke = 'hsl(' + String(hue - 12) + ', 64%, 34%)';
+      var detail = 'hsl(' + String(hue + 30) + ', 90%, 98%)';
+      var title = escapeXml(step.label);
+      var hint = escapeXml(step.visualHint);
+      var svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="680" height="360" viewBox="0 0 680 360">' +
+          '<defs>' +
+            '<linearGradient id="refBg" x1="0" y1="0" x2="1" y2="1">' +
+              '<stop offset="0%" stop-color="' + bgA + '"/>' +
+              '<stop offset="100%" stop-color="' + bgB + '"/>' +
+            '</linearGradient>' +
+          '</defs>' +
+          '<rect width="680" height="360" fill="url(#refBg)"/>' +
+          '<circle cx="250" cy="178" r="88" fill="none" stroke="' + stroke + '" stroke-width="18"/>' +
+          '<ellipse cx="290" cy="142" rx="34" ry="15" fill="' + detail + '" opacity="0.62"/>' +
+          '<rect x="402" y="112" width="210" height="126" rx="16" fill="rgba(255,255,255,0.56)"/>' +
+          '<text x="420" y="160" font-size="24" font-family="Arial, sans-serif" fill="#1A2B5E">Paso ' + String(index + 1) + '</text>' +
+          '<text x="420" y="195" font-size="18" font-family="Arial, sans-serif" fill="#324777">' + title + '</text>' +
+          '<text x="420" y="224" font-size="14" font-family="Arial, sans-serif" fill="#435A8F">' + hint + '</text>' +
+        '</svg>';
+      return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+    }
+
+    /* Draws a 4-step shot guide so capture intent is clear for downstream AI. */
+    function renderReferenceGuide() {
+      var guide = document.getElementById('referenceGuide');
+      if (!guide) {
+        return;
+      }
+
+      var currentStep = getNextPhotoIndex();
+      guide.innerHTML = '';
+
+      for (var i = 0; i < PHOTO_REFERENCE_STEPS.length; i += 1) {
+        var step = PHOTO_REFERENCE_STEPS[i];
+        var row = document.createElement('article');
+        var isCaptured = Boolean(capturedPhotos[i]);
+        var hasCurrent = currentStep < PHOTO_REFERENCE_STEPS.length;
+        var isCurrent = !isCaptured && hasCurrent && i === currentStep;
+        var statusClass = isCaptured ? 'done' : (isCurrent ? 'current' : 'pending');
+        row.className = 'reference-step ' + statusClass + (isCurrent ? ' expanded' : ' compact');
+
+        var badge = document.createElement('span');
+        badge.className = 'reference-step-badge';
+        badge.textContent = String(i + 1);
+
+        if (isCurrent) {
+          var header = document.createElement('div');
+          header.className = 'reference-step-header';
+
+          var title = document.createElement('p');
+          title.className = 'reference-step-title';
+          title.textContent = step.label;
+
+          header.appendChild(badge);
+          header.appendChild(title);
+
+          var img = document.createElement('img');
+          img.className = 'reference-step-image';
+          img.src = buildReferenceImage(i, step);
+          img.alt = 'Referencia del paso ' + String(i + 1) + ': ' + step.label;
+
+          var instruction = document.createElement('p');
+          instruction.className = 'reference-step-instruction';
+          instruction.textContent = step.instruction;
+
+          row.appendChild(header);
+          row.appendChild(img);
+          row.appendChild(instruction);
+        } else {
+          var titleCompact = document.createElement('p');
+          titleCompact.className = 'reference-step-title';
+          titleCompact.textContent = step.label;
+
+          row.appendChild(badge);
+          row.appendChild(titleCompact);
+        }
+
+        guide.appendChild(row);
+      }
+    }
+
+    /* Builds a simple placeholder image so flow can continue when camera is unavailable. */
+    function buildPlaceholder(number) {
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300">' +
+        '<rect width="100%" height="100%" fill="#f2f2f2"/>' +
+        '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="32" fill="#8f8f8f">Foto ' + number + '</text>' +
+        '</svg>';
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
+    /* Paints four thumbnail slots reflecting captured and pending photos. */
+    function renderThumbs() {
+      var strip = document.getElementById('thumbStrip');
+      strip.innerHTML = '';
+      for (var i = 0; i < 4; i += 1) {
+        var slot = document.createElement('div');
+        slot.className = 'thumb-slot' + (capturedPhotos[i] ? '' : ' pending');
+        if (capturedPhotos[i]) {
+          var img = document.createElement('img');
+          img.src = capturedPhotos[i];
+          img.alt = 'Foto capturada ' + String(i + 1);
+          slot.appendChild(img);
+
+          var removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'thumb-remove-btn';
+          removeBtn.setAttribute('aria-label', 'Eliminar foto ' + String(i + 1));
+          removeBtn.innerHTML = '&#128465;';
+          removeBtn.dataset.index = String(i);
+          removeBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var index = Number(event.currentTarget.dataset.index || 0);
+            capturedPhotos[index] = null;
+            if (qualityCheckStage === 2) {
+              qualityCheckStage = 0;
+              rejectedPhotoIndex = null;
+              setState('pp.photoQualityStage', qualityCheckStage);
+              setState('pp.photoRejectedIndex', rejectedPhotoIndex);
+              setQualityNotice('Se modificaron las fotos. Completa de nuevo las 4 tomas para validar calidad.', 'info');
+            }
+            normalizeCapturedPhotos();
+            persistPhotos();
+            renderThumbs();
+          });
+          slot.appendChild(removeBtn);
+        }
+        strip.appendChild(slot);
+      }
+      document.getElementById('photoTitle').textContent = 'Foto ' + String(Math.min(photoIndex + 1, 4)) + ' de 4';
+      renderReferenceGuide();
+      updateContinueState();
+    }
+
+    /* Saves local capture progress into sessionStorage for next screens. */
+    function persistPhotos() {
+      setState(StateKeys.capturedPhotos, capturedPhotos);
+      setState(StateKeys.photoIndex, photoIndex);
+    }
+
+    /* Captures one frame without auto-advancing. User clicks "Continuar" when all four photos are done. */
+    function captureNext() {
+      if (isQualityChecking) {
+        return;
+      }
+
+      photoIndex = getNextPhotoIndex();
+      if (photoIndex >= 4) {
+        return;
+      }
+
+      var videoEl = document.getElementById('photoVideo');
+      var frame = captureFrame(videoEl);
+      if (!frame) {
+        frame = buildPlaceholder(photoIndex + 1);
+      }
+
+      capturedPhotos[photoIndex] = frame;
+      photoIndex = getNextPhotoIndex();
+      persistPhotos();
+      renderThumbs();
+      runQualityCheckIfReady();
+    }
+
+    document.addEventListener('DOMContentLoaded', async function () {
+      var currentSku = getState(StateKeys.sku, 'SKU-DEMO-001');
+      var photoSessionSku = getState('pp.photoSessionSku', null);
+
+      if (photoSessionSku !== currentSku) {
+        setState(StateKeys.capturedPhotos, []);
+        setState(StateKeys.photoIndex, 0);
+        setState('pp.photoSessionSku', currentSku);
+        setState('pp.photoQualityStage', 0);
+        setState('pp.photoRejectedIndex', null);
+      }
+
+      photoIndex = getState(StateKeys.photoIndex, 0);
+      capturedPhotos = getState(StateKeys.capturedPhotos, []);
+      if (!Array.isArray(capturedPhotos)) {
+        capturedPhotos = [];
+      }
+      qualityCheckStage = Number(getState('pp.photoQualityStage', 0)) || 0;
+      rejectedPhotoIndex = getState('pp.photoRejectedIndex', null);
+      if (typeof rejectedPhotoIndex === 'number' && rejectedPhotoIndex < 0) {
+        rejectedPhotoIndex = null;
+      }
+      normalizeCapturedPhotos();
+
+      renderThumbs();
+      if (qualityCheckStage === 1 && rejectedPhotoIndex !== null) {
+        setQualityNotice('Verificacion IA: la foto ' + String(Number(rejectedPhotoIndex) + 1) + ' salio desenfocada. Vuelvela a tomar para continuar.', 'warning');
+      } else if (qualityCheckStage === 2) {
+        setQualityNotice('Verificacion IA completada: las 4 fotos pasaron calidad.', 'success');
+      }
+      runQualityCheckIfReady();
+
+      try {
+        streamRef = await startCamera(document.getElementById('photoVideo'));
+      } catch (error) {
+        document.getElementById('cameraWarning').style.display = 'block';
+      }
+
+      document.getElementById('captureBtn').addEventListener('click', captureNext);
+      document.getElementById('continueBtn').addEventListener('click', function () {
+        if (isQualityChecking) {
+          setQualityNotice('Espera a que termine la verificacion IA.', 'info');
+          return;
+        }
+        if (!areAllPhotosCaptured() || qualityCheckStage !== 2) {
+          setQualityNotice('Completa las 4 fotos y pasa la verificacion IA para continuar.', 'warning');
+          return;
+        }
+        goTo('details.html');
+      });
+    });
+
+    window.addEventListener('beforeunload', function () {
+      stopCamera(streamRef);
+    });
+  </script>
+</body>
+</html>

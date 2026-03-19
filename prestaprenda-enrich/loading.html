@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Presta Prenda Enrich - Generando</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <button class="back-btn" aria-label="Atrás" onclick="goBack('details.html')">&#8249;</button>
+      <div class="logo">Presta Prenda</div>
+      <div class="step-dots" aria-label="Paso 3 de 4">
+        <span class="step-dot done"></span>
+        <span class="step-dot done"></span>
+        <span class="step-dot current"></span>
+        <span class="step-dot"></span>
+      </div>
+    </header>
+
+    <section class="content space-y">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Paso 5 · Generación</span>
+          <h1 style="font-size: 22px; margin-top: 10px;">Generando resultado IA</h1>
+        </div>
+      </div>
+      <div id="loadingGrid" class="loading-grid"></div>
+
+      <div class="progress" aria-label="Progreso de generación">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+
+      <p class="text-secondary">Generando imágenes profesionales y descripción...</p>
+    </section>
+
+    <div class="sticky-bar">
+      <button id="skipLoadingBtn" class="btn btn-primary" type="button">Continuar ahora</button>
+    </div>
+  </main>
+
+  <script src="js/nav.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/tutorial.js"></script>
+  <script>
+    /* Produces fallback thumbnails so loading grid is always complete. */
+    function placeholder(index) {
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">' +
+        '<rect width="100%" height="100%" fill="#ececec"/>' +
+        '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="18" fill="#8a8a8a">Variante ' + index + '</text>' +
+        '</svg>';
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
+    /* Renders a fixed 2x2 grid with shimmer overlays while progress runs. */
+    function renderGrid(photos) {
+      var grid = document.getElementById('loadingGrid');
+      grid.innerHTML = '';
+      for (var i = 0; i < 4; i += 1) {
+        var item = document.createElement('div');
+        item.className = 'loading-item';
+        item.innerHTML = '<img alt="Foto ' + String(i + 1) + '" src="' + (photos[i] || placeholder(i + 1)) + '"><span class="shimmer"></span>';
+        grid.appendChild(item);
+      }
+    }
+
+    /* Creates AI mock output object for review stage integration. */
+    function buildMockAiResult(photos) {
+      var preview = getState(StateKeys.previewData, {});
+      var details = getState(StateKeys.details, {});
+      var category = preview.categoria || getState(StateKeys.category, 'Prenda');
+      var tipo = (details.tipoOro && details.tipoOro[0]) ? details.tipoOro[0].toLowerCase() : 'amarillo';
+      var kilataje = preview.kilataje || '14';
+
+      return {
+        title: category + ' de oro ' + tipo + ' de ' + kilataje + ' kilates',
+        description: 'Pieza de joyería en excelentes condiciones, ideal para uso diario o regalo. Presenta un acabado brillante y detalles bien definidos que resaltan su diseño.',
+        variants: [photos[0] || placeholder(1), photos[1] || placeholder(2), photos[2] || placeholder(3), photos[3] || placeholder(4)]
+      };
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var photos = getState(StateKeys.capturedPhotos, []);
+      if (!Array.isArray(photos)) {
+        photos = [];
+      }
+
+      renderGrid(photos);
+
+      var bar = document.getElementById('progressBar');
+      var start = Date.now();
+      var duration = 3000;
+      var finished = false;
+
+      function finishLoading() {
+        if (finished) {
+          return;
+        }
+        finished = true;
+        window.clearInterval(timer);
+        var result = buildMockAiResult(photos);
+        setState(StateKeys.aiResult, result);
+        setState(StateKeys.selectedVariant, 0);
+        goTo('review.html');
+      }
+
+      var timer = window.setInterval(function () {
+        var elapsed = Date.now() - start;
+        var pct = Math.min(100, Math.round((elapsed / duration) * 100));
+        bar.style.width = String(pct) + '%';
+        if (pct >= 100) {
+          finishLoading();
+        }
+      }, 90);
+
+      document.getElementById('skipLoadingBtn').addEventListener('click', finishLoading);
+    });
+  </script>
+</body>
+</html>
