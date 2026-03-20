@@ -46,6 +46,7 @@ body {
   color: var(--color-navy);
   letter-spacing: 0.2px;
   font-size: 15px;
+  cursor: pointer;
 }
 
 .back-btn {
@@ -466,6 +467,14 @@ body {
   box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.18);
 }
 
+.input:disabled,
+.textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: var(--color-surface);
+  pointer-events: none;
+}
+
 .btn {
   min-height: var(--cta-height);
   border-radius: var(--radius-button);
@@ -677,6 +686,7 @@ body {
   object-fit: cover;
   border: 1px solid rgba(26, 43, 94, 0.1);
   background: #F7F8FC;
+  cursor: zoom-in;
 }
 
 .reference-step-badge {
@@ -840,6 +850,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  cursor: zoom-in;
 }
 
 .thumb-remove-btn {
@@ -931,6 +942,26 @@ body {
   font-size: 14px;
 }
 
+.ai-regen-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.regen-one-btn.ai-regen-btn {
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.ai-icon {
+  width: 16px;
+  height: 16px;
+  fill: var(--color-ia);
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
 .variant-card {
   min-width: 160px;
   width: 160px;
@@ -1012,8 +1043,8 @@ body {
 
 .image-preview-close {
   position: absolute;
-  top: -12px;
-  right: -12px;
+  top: 8px;
+  right: 8px;
   width: 36px;
   height: 36px;
   border-radius: 99px;
@@ -1023,6 +1054,11 @@ body {
   font-size: 24px;
   line-height: 1;
   box-shadow: 0 8px 16px rgba(10, 18, 40, 0.22);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 .center-success {

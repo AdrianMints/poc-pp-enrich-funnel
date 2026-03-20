@@ -54,6 +54,14 @@
     <div class="sticky-bar">
       <button id="continueBtn" class="btn btn-primary" type="button">Continuar</button>
     </div>
+
+    <div id="referencePreviewModal" class="image-preview-modal" hidden>
+      <div class="image-preview-backdrop" data-close-reference-preview="true"></div>
+      <div class="image-preview-dialog" role="dialog" aria-modal="true" aria-label="Vista completa de referencia">
+        <button id="closeReferencePreviewBtn" class="image-preview-close" type="button" aria-label="Cerrar vista completa">&times;</button>
+        <img id="referencePreviewImage" src="" alt="Vista completa de referencia">
+      </div>
+    </div>
   </main>
 
   <script src="js/nav.js"></script>
@@ -215,10 +223,8 @@
       var hue = 24 + (index * 16);
       var bgA = 'hsl(' + String(hue) + ', 86%, 94%)';
       var bgB = 'hsl(' + String(hue + 10) + ', 84%, 86%)';
-      var stroke = 'hsl(' + String(hue - 12) + ', 64%, 34%)';
-      var detail = 'hsl(' + String(hue + 30) + ', 90%, 98%)';
-      var title = escapeXml(step.label);
-      var hint = escapeXml(step.visualHint);
+      var labelBg = 'hsla(' + String(hue - 10) + ', 72%, 36%, 0.82)';
+      var labelBorder = 'hsla(' + String(hue - 6) + ', 78%, 28%, 0.35)';
       var svg =
         '<svg xmlns="http://www.w3.org/2000/svg" width="680" height="360" viewBox="0 0 680 360">' +
           '<defs>' +
@@ -228,14 +234,55 @@
             '</linearGradient>' +
           '</defs>' +
           '<rect width="680" height="360" fill="url(#refBg)"/>' +
-          '<circle cx="250" cy="178" r="88" fill="none" stroke="' + stroke + '" stroke-width="18"/>' +
-          '<ellipse cx="290" cy="142" rx="34" ry="15" fill="' + detail + '" opacity="0.62"/>' +
-          '<rect x="402" y="112" width="210" height="126" rx="16" fill="rgba(255,255,255,0.56)"/>' +
-          '<text x="420" y="160" font-size="24" font-family="Arial, sans-serif" fill="#1A2B5E">Paso ' + String(index + 1) + '</text>' +
-          '<text x="420" y="195" font-size="18" font-family="Arial, sans-serif" fill="#324777">' + title + '</text>' +
-          '<text x="420" y="224" font-size="14" font-family="Arial, sans-serif" fill="#435A8F">' + hint + '</text>' +
+          '<rect x="90" y="78" width="500" height="204" rx="22" fill="rgba(255,255,255,0.5)" stroke="' + labelBorder + '"/>' +
+          '<rect x="124" y="120" width="432" height="120" rx="16" fill="' + labelBg + '"/>' +
+          '<text x="340" y="170" text-anchor="middle" font-size="30" font-family="Arial, sans-serif" fill="#FFFFFF">Imagen de referencia</text>' +
+          '<text x="340" y="206" text-anchor="middle" font-size="16" font-family="Arial, sans-serif" fill="rgba(255,255,255,0.9)">Paso ' + String(index + 1) + '</text>' +
         '</svg>';
       return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+    }
+
+    function openReferencePreview(src, alt) {
+      var modal = document.getElementById('referencePreviewModal');
+      var preview = document.getElementById('referencePreviewImage');
+      if (!modal || !preview || !src) {
+        return;
+      }
+      preview.src = src;
+      preview.alt = alt || 'Vista completa de referencia';
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeReferencePreview() {
+      var modal = document.getElementById('referencePreviewModal');
+      var preview = document.getElementById('referencePreviewImage');
+      if (!modal || !preview) {
+        return;
+      }
+      modal.hidden = true;
+      preview.src = '';
+      document.body.style.overflow = '';
+    }
+
+    function bindReferencePreviewModal() {
+      var modal = document.getElementById('referencePreviewModal');
+      var closeBtn = document.getElementById('closeReferencePreviewBtn');
+      if (!modal || !closeBtn) {
+        return;
+      }
+
+      closeBtn.addEventListener('click', closeReferencePreview);
+      modal.addEventListener('click', function (event) {
+        if (event.target.closest('[data-close-reference-preview="true"]')) {
+          closeReferencePreview();
+        }
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.hidden) {
+          closeReferencePreview();
+        }
+      });
     }
 
     /* Draws a 4-step shot guide so capture intent is clear for downstream AI. */
@@ -276,6 +323,9 @@
           img.className = 'reference-step-image';
           img.src = buildReferenceImage(i, step);
           img.alt = 'Referencia del paso ' + String(i + 1) + ': ' + step.label;
+          img.addEventListener('click', function () {
+            openReferencePreview(img.src, img.alt);
+          });
 
           var instruction = document.createElement('p');
           instruction.className = 'reference-step-instruction';
@@ -317,6 +367,9 @@
           var img = document.createElement('img');
           img.src = capturedPhotos[i];
           img.alt = 'Foto capturada ' + String(i + 1);
+          img.addEventListener('click', function () {
+            openReferencePreview(img.src, img.alt);
+          });
           slot.appendChild(img);
 
           var removeBtn = document.createElement('button');
@@ -419,6 +472,7 @@
       }
 
       document.getElementById('captureBtn').addEventListener('click', captureNext);
+      bindReferencePreviewModal();
       document.getElementById('continueBtn').addEventListener('click', function () {
         if (isQualityChecking) {
           setQualityNotice('Espera a que termine la verificacion IA.', 'info');

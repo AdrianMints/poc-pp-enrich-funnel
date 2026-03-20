@@ -32,14 +32,23 @@
       <article class="card space-y">
         <div>
           <label class="field-label" for="regenPrompt">Prompt para regenerar imágenes</label>
-          <input id="regenPrompt" class="input" type="text" placeholder="Ej. fondo blanco, luz suave, vista frontal, alta nitidez">
+          <textarea id="regenPrompt" class="textarea" rows="2" placeholder="Ej. fondo blanco, luz suave, vista frontal, alta nitidez"></textarea>
         </div>
 
         <div id="variantRow" class="variant-row"></div>
 
         <div class="review-actions-row">
-          <button id="regenAllBtn" class="btn btn-secondary" type="button" disabled>Regenerar 4 variantes</button>
+          <button id="regenAllBtn" class="btn btn-secondary ai-regen-btn" type="button" disabled>
+            <svg class="ai-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 2.5l1.5 3.7 3.9 1.6-3.9 1.6L12 13l-1.5-3.6-3.9-1.6 3.9-1.6L12 2.5z"></path>
+              <path d="M18.2 11.8l.9 2.2 2.3.9-2.3.9-.9 2.2-.9-2.2-2.3-.9 2.3-.9.9-2.2z"></path>
+              <path d="M7 13.5l1.2 2.9 3 .1-2.3 1.9.8 2.9L7 19.6l-2.7 1.7.8-2.9-2.3-1.9 3-.1L7 13.5z"></path>
+            </svg>
+            <span>Regenerar 4 variantes</span>
+          </button>
         </div>
+
+        <p id="iaThinkingHint" class="text-secondary small" style="display:none;">Consultando IA...</p>
       </article>
 
       <article class="card space-y">
@@ -47,22 +56,22 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <label class="field-label" for="titleInput" style="margin:0;">Título</label>
             <div style="display:flex;align-items:center;gap:8px;">
-              <button id="regenTitleBtn" class="btn btn-secondary" type="button" style="min-height:30px;padding:0 10px;font-size:12px;">Regenerar</button>
-              <span id="titleIa" class="badge badge-ia">IA</span>
+              <button id="regenTitleBtn" class="btn btn-secondary ai-regen-btn" type="button" style="min-height:30px;padding:0 10px;font-size:12px;"><svg class="ai-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.5l1.5 3.7 3.9 1.6-3.9 1.6L12 13l-1.5-3.6-3.9-1.6 3.9-1.6L12 2.5z"></path><path d="M18.2 11.8l.9 2.2 2.3.9-2.3.9-.9 2.2-.9-2.2-2.3-.9 2.3-.9.9-2.2z"></path><path d="M7 13.5l1.2 2.9 3 .1-2.3 1.9.8 2.9L7 19.6l-2.7 1.7.8-2.9-2.3-1.9 3-.1L7 13.5z"></path></svg><span>Regenerar</span></button>
             </div>
           </div>
           <input id="titleInput" class="input" type="text" value="">
+          <p id="titleThinkingHint" class="text-secondary small" style="display:none; margin-top:8px;">Consultando IA para regenerar titulo...</p>
         </div>
 
         <div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <label class="field-label" for="descriptionInput" style="margin:0;">Descripción</label>
             <div style="display:flex;align-items:center;gap:8px;">
-              <button id="regenDescBtn" class="btn btn-secondary" type="button" style="min-height:30px;padding:0 10px;font-size:12px;">Regenerar</button>
-              <span id="descIa" class="badge badge-ia">IA</span>
+              <button id="regenDescBtn" class="btn btn-secondary ai-regen-btn" type="button" style="min-height:30px;padding:0 10px;font-size:12px;"><svg class="ai-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.5l1.5 3.7 3.9 1.6-3.9 1.6L12 13l-1.5-3.6-3.9-1.6 3.9-1.6L12 2.5z"></path><path d="M18.2 11.8l.9 2.2 2.3.9-2.3.9-.9 2.2-.9-2.2-2.3-.9 2.3-.9.9-2.2z"></path><path d="M7 13.5l1.2 2.9 3 .1-2.3 1.9.8 2.9L7 19.6l-2.7 1.7.8-2.9-2.3-1.9 3-.1L7 13.5z"></path></svg><span>Regenerar</span></button>
             </div>
           </div>
           <textarea id="descriptionInput" class="textarea" rows="3"></textarea>
+          <p id="descriptionThinkingHint" class="text-secondary small" style="display:none; margin-top:8px;">Consultando IA para regenerar descripcion...</p>
         </div>
       </article>
     </section>
@@ -91,6 +100,10 @@
     };
     var VARIANT_COUNT = 4;
     var isRegenInProgress = false;
+    var isRegenTitleInProgress = false;
+    var isRegenDescInProgress = false;
+    var titleRegenIndex = 0;
+    var descriptionRegenIndex = 0;
 
     function escapeXml(text) {
       return String(text || '')
@@ -99,6 +112,15 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;');
+    }
+
+    function getAiIconMarkup() {
+      return '' +
+        '<svg class="ai-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+          '<path d="M12 2.5l1.5 3.7 3.9 1.6-3.9 1.6L12 13l-1.5-3.6-3.9-1.6 3.9-1.6L12 2.5z"></path>' +
+          '<path d="M18.2 11.8l.9 2.2 2.3.9-2.3.9-.9 2.2-.9-2.2-2.3-.9 2.3-.9.9-2.2z"></path>' +
+          '<path d="M7 13.5l1.2 2.9 3 .1-2.3 1.9.8 2.9L7 19.6l-2.7 1.7.8-2.9-2.3-1.9 3-.1L7 13.5z"></path>' +
+        '</svg>';
     }
 
     /* Creates a deterministic mock image influenced by prompt + index. */
@@ -223,9 +245,74 @@
       });
     }
 
-    function setRegenerationBusy(isBusy) {
+    function updateTitleRegenState() {
+      var regenTitleBtn = document.getElementById('regenTitleBtn');
+      var titleInput = document.getElementById('titleInput');
+      if (regenTitleBtn) { regenTitleBtn.disabled = isRegenTitleInProgress || isRegenInProgress; }
+      if (titleInput) { titleInput.disabled = isRegenTitleInProgress; }
+    }
+
+    function updateDescRegenState() {
+      var regenDescBtn = document.getElementById('regenDescBtn');
+      var descriptionInput = document.getElementById('descriptionInput');
+      if (regenDescBtn) { regenDescBtn.disabled = isRegenDescInProgress || isRegenInProgress; }
+      if (descriptionInput) { descriptionInput.disabled = isRegenDescInProgress; }
+    }
+
+    function updateTextRegenButtonsState() {
+      updateTitleRegenState();
+      updateDescRegenState();
+    }
+
+    function wait(ms) {
+      return new Promise(function (resolve) {
+        window.setTimeout(resolve, ms);
+      });
+    }
+
+    function setRegenerationBusy(isBusy, message, target) {
       isRegenInProgress = isBusy;
+
+      var hints = {
+        images: document.getElementById('iaThinkingHint'),
+        title: document.getElementById('titleThinkingHint'),
+        description: document.getElementById('descriptionThinkingHint')
+      };
+
+      Object.keys(hints).forEach(function (key) {
+        if (hints[key]) {
+          hints[key].style.display = 'none';
+        }
+      });
+
+      if (isBusy && target && hints[target]) {
+        hints[target].textContent = message || 'Consultando IA...';
+        hints[target].style.display = 'block';
+      }
+
       updateImageRegenButtonsState();
+      updateTextRegenButtonsState();
+    }
+
+    function runWithIaDelay(task, message, target) {
+      if (isRegenInProgress) {
+        return Promise.resolve();
+      }
+
+      var startedAt = Date.now();
+      setRegenerationBusy(true, message, target);
+      return Promise.resolve()
+        .then(task)
+        .then(function (result) {
+          var elapsed = Date.now() - startedAt;
+          var remaining = Math.max(0, 1000 - elapsed);
+          return wait(remaining).then(function () {
+            return result;
+          });
+        })
+        .finally(function () {
+          setRegenerationBusy(false);
+        });
     }
 
     function openImagePreview(src, alt) {
@@ -261,21 +348,84 @@
       });
     }
 
-    function buildRegeneratedTitle(prompt) {
-      var category = getState(StateKeys.category, 'Joya');
-      var preview = getState(StateKeys.previewData, {});
-      var key = (prompt || '').trim();
-      var style = key ? key.split(/[,.]/)[0].trim() : 'acabado premium';
-      var styleChunk = style ? ' · ' + style.slice(0, 28) : '';
-      if (category === 'Reloj') {
-        var marca = preview.marca || 'Marca';
-        var modelo = preview.modelo || 'Modelo';
-        return 'Reloj ' + marca + ' ' + modelo + styleChunk;
+    function toSeoSlugPart(value, fallback) {
+      var text = String(value || '').trim();
+      if (!text) {
+        return fallback || '';
       }
-      return category + ' en oro' + styleChunk;
+      return text
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9\s-]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
     }
 
-    function buildRegeneratedDescription(prompt) {
+    function buildSeoTitleParts(prompt) {
+      var category = toSeoSlugPart(getState(StateKeys.category, 'Joya'), 'Joya');
+      var preview = getState(StateKeys.previewData, {});
+      var details = getState(StateKeys.details, {});
+      var isWatch = category === 'Reloj';
+      var promptKey = toSeoSlugPart((prompt || '').split(/[,.]/)[0], '');
+      var shortPrompt = promptKey ? promptKey.slice(0, 28) : '';
+      var tipoOro = Array.isArray(details.tipoOro) && details.tipoOro.length > 0
+        ? toSeoSlugPart(details.tipoOro[0], 'amarillo').toLowerCase()
+        : 'amarillo';
+      var kilataje = toSeoSlugPart(preview.kilataje || '14', '14');
+      var measurement = toSeoSlugPart(details.measurement || '', '');
+      var genero = toSeoSlugPart(details.genero || '', '').toLowerCase();
+
+      if (isWatch) {
+        return {
+          isWatch: true,
+          keyword: 'Reloj',
+          marca: toSeoSlugPart(preview.marca, 'Marca'),
+          modelo: toSeoSlugPart(preview.modelo, 'Modelo'),
+          genero: genero,
+          shortPrompt: shortPrompt
+        };
+      }
+
+      return {
+        isWatch: false,
+        keyword: category,
+        tipoOro: tipoOro,
+        kilataje: kilataje,
+        measurement: measurement,
+        shortPrompt: shortPrompt
+      };
+    }
+
+    function buildRegeneratedTitleOptions(prompt) {
+      var parts = buildSeoTitleParts(prompt);
+      if (parts.isWatch) {
+        var extraWatch = parts.shortPrompt ? ' ' + parts.shortPrompt : '';
+        var watchAudience = parts.genero && parts.genero !== 'unisex' ? ' ' + parts.genero : '';
+        return [
+          'Reloj ' + parts.marca + ' ' + parts.modelo + watchAudience,
+          'Reloj ' + parts.marca + ' ' + parts.modelo + ' acero original' + watchAudience,
+          'Reloj ' + parts.marca + ' ' + parts.modelo + ' cronografo de caballero',
+          'Reloj ' + parts.marca + ' ' + parts.modelo + extraWatch,
+          'Reloj ' + parts.marca + ' modelo ' + parts.modelo + ' para catalogo'
+        ];
+      }
+
+      var goldSpec = parts.kilataje && parts.kilataje !== 'N/A'
+        ? parts.kilataje + 'k'
+        : '';
+      var measurementSuffix = parts.measurement ? ' talla/medida ' + parts.measurement : '';
+      var promptSuffix = parts.shortPrompt ? ' ' + parts.shortPrompt : '';
+
+      return [
+        parts.keyword + ' de oro ' + parts.tipoOro + ' ' + goldSpec + measurementSuffix,
+        parts.keyword + ' oro ' + parts.tipoOro + ' ' + goldSpec + ' acabado brillante',
+        parts.keyword + ' de oro ' + goldSpec + ' estilo clasico' + measurementSuffix,
+        parts.keyword + ' de oro ' + parts.tipoOro + promptSuffix,
+        parts.keyword + ' de oro ' + goldSpec + ' para catalogo digital'
+      ];
+    }
+
+    function buildRegeneratedDescriptionOptions(prompt) {
       var category = getState(StateKeys.category, 'pieza');
       var sku = getState(StateKeys.sku, 'SKU-DEMO-001');
       var preview = getState(StateKeys.previewData, {});
@@ -286,13 +436,21 @@
       if (category === 'Reloj') {
         var marca = preview.marca || 'Marca no especificada';
         var modelo = preview.modelo || 'Modelo no especificado';
-        return 'Reloj ' + marca + ' ' + modelo + ' con datos precargados de sucursal. ' +
-          direction +
-          'Referencia visual: ' + sku + '.';
+        return [
+          'Reloj ' + marca + ' ' + modelo + ' con datos precargados de sucursal. ' + direction + 'Referencia visual: ' + sku + '.',
+          'Pieza de relojeria ' + marca + ' ' + modelo + ' en muy buen estado estético y funcional. ' + direction + 'SKU de referencia: ' + sku + '.',
+          'Reloj ' + marca + ' ' + modelo + ' ideal para publicacion inmediata en catalogo. ' + direction + 'Control interno: ' + sku + '.',
+          'Modelo ' + modelo + ' de ' + marca + ' con presencia solida y buena lectura de caratula. ' + direction + 'Referencia: ' + sku + '.',
+          'Reloj de marca ' + marca + ' con modelo identificado (' + modelo + '). ' + direction + 'Ficha vinculada al SKU ' + sku + '.'
+        ];
       }
-      return 'Diseño de ' + category.toLowerCase() + ' elaborado en oro, ideal para catálogo digital. ' +
-        direction +
-        'Referencia visual: ' + sku + '.';
+      return [
+        'Diseño de ' + category.toLowerCase() + ' elaborado en oro, ideal para catálogo digital. ' + direction + 'Referencia visual: ' + sku + '.',
+        category + ' con acabado brillante y buena presencia visual para venta en linea. ' + direction + 'SKU: ' + sku + '.',
+        'Pieza de ' + category.toLowerCase() + ' en condiciones visibles de uso, con detalles definidos. ' + direction + 'Control: ' + sku + '.',
+        category + ' de oro con estilo clasico y versatil para uso diario o regalo. ' + direction + 'Referencia interna: ' + sku + '.',
+        'Articulo de ' + category.toLowerCase() + ' con toma sugerida para destacar volumen y acabado. ' + direction + 'Vinculo de ficha: ' + sku + '.'
+      ];
     }
 
     /* Draws generated variant cards with per-item regeneration actions. */
@@ -306,7 +464,10 @@
         card.innerHTML =
           '<img src="' + src + '" alt="Variante ' + String(index + 1) + '">' +
           '<div class="variant-footer">' +
-            '<button class="btn btn-secondary regen-one-btn" type="button" data-index="' + String(index) + '" ' + (!enabled ? 'disabled' : '') + '>Regenerar esta</button>' +
+            '<button class="btn btn-secondary regen-one-btn ai-regen-btn" type="button" data-index="' + String(index) + '" ' + (!enabled ? 'disabled' : '') + '>' +
+              getAiIconMarkup() +
+              '<span>Regenerar imagen</span>' +
+            '</button>' +
           '</div>';
         row.appendChild(card);
       });
@@ -322,16 +483,14 @@
           var index = Number(button.dataset.index || 0);
           var prompt = document.getElementById('regenPrompt').value || '';
           var source = aiResult.variants[index];
-          setRegenerationBusy(true);
-          createSubtleVariantFromSource(source, prompt, index)
-            .then(function (nextVariant) {
-              aiResult.variants[index] = nextVariant;
-              persistAiResult();
-              renderVariants();
-            })
-            .finally(function () {
-              setRegenerationBusy(false);
-            });
+          runWithIaDelay(function () {
+            return createSubtleVariantFromSource(source, prompt, index)
+              .then(function (nextVariant) {
+                aiResult.variants[index] = nextVariant;
+                persistAiResult();
+                renderVariants();
+              });
+          }, 'Consultando IA para regenerar imagen...', 'images');
         });
       });
 
@@ -348,8 +507,6 @@
       var regenDescBtn = document.getElementById('regenDescBtn');
       var titleInput = document.getElementById('titleInput');
       var descriptionInput = document.getElementById('descriptionInput');
-      var titleBadge = document.getElementById('titleIa');
-      var descBadge = document.getElementById('descIa');
       var regenPrompt = document.getElementById('regenPrompt');
 
       regenAllBtn.addEventListener('click', function () {
@@ -361,18 +518,16 @@
         }
         var prompt = document.getElementById('regenPrompt').value || '';
         var currentSources = aiResult.variants.slice(0, VARIANT_COUNT);
-        setRegenerationBusy(true);
-        Promise.all(currentSources.map(function (source, index) {
-          return createSubtleVariantFromSource(source, prompt, index);
-        }))
-          .then(function (nextVariants) {
-            aiResult.variants = nextVariants;
-            persistAiResult();
-            renderVariants();
-          })
-          .finally(function () {
-            setRegenerationBusy(false);
-          });
+        runWithIaDelay(function () {
+          return Promise.all(currentSources.map(function (source, index) {
+            return createSubtleVariantFromSource(source, prompt, index);
+          }))
+            .then(function (nextVariants) {
+              aiResult.variants = nextVariants;
+              persistAiResult();
+              renderVariants();
+            });
+        }, 'Consultando IA para regenerar variantes...', 'images');
       });
 
       regenPrompt.addEventListener('input', function () {
@@ -380,19 +535,55 @@
       });
 
       regenTitleBtn.addEventListener('click', function () {
+        if (isRegenTitleInProgress || isRegenInProgress) { return; }
+        var startedAt = Date.now();
+        isRegenTitleInProgress = true;
+        updateTitleRegenState();
+        var hint = document.getElementById('titleThinkingHint');
+        if (hint) { hint.textContent = 'Consultando IA para regenerar titulo...'; hint.style.display = 'block'; }
         var prompt = document.getElementById('regenPrompt').value || '';
-        aiResult.title = buildRegeneratedTitle(prompt);
-        titleInput.value = aiResult.title;
-        titleBadge.style.display = 'inline-flex';
-        persistAiResult();
+        var options = buildRegeneratedTitleOptions(prompt);
+        var current = (aiResult.title || '').trim();
+        var next = options[titleRegenIndex % options.length];
+        if (next.trim() === current) {
+          titleRegenIndex += 1;
+          next = options[titleRegenIndex % options.length];
+        }
+        aiResult.title = next;
+        titleRegenIndex += 1;
+        wait(Math.max(0, 1000 - (Date.now() - startedAt))).then(function () {
+          titleInput.value = aiResult.title;
+          persistAiResult();
+          isRegenTitleInProgress = false;
+          if (hint) { hint.style.display = 'none'; }
+          updateTitleRegenState();
+        });
       });
 
       regenDescBtn.addEventListener('click', function () {
+        if (isRegenDescInProgress || isRegenInProgress) { return; }
+        var startedAt = Date.now();
+        isRegenDescInProgress = true;
+        updateDescRegenState();
+        var hint = document.getElementById('descriptionThinkingHint');
+        if (hint) { hint.textContent = 'Consultando IA para regenerar descripcion...'; hint.style.display = 'block'; }
         var prompt = document.getElementById('regenPrompt').value || '';
-        aiResult.description = buildRegeneratedDescription(prompt);
-        descriptionInput.value = aiResult.description;
-        descBadge.style.display = 'inline-flex';
-        persistAiResult();
+        var options = buildRegeneratedDescriptionOptions(prompt);
+        var current = (aiResult.description || '').trim();
+        var next = options[descriptionRegenIndex % options.length];
+        if (next.trim() === current) {
+          descriptionRegenIndex += 1;
+          next = options[descriptionRegenIndex % options.length];
+        }
+        aiResult.description = next;
+        descriptionRegenIndex += 1;
+        wait(Math.max(0, 1000 - (Date.now() - startedAt))).then(function () {
+          descriptionInput.value = aiResult.description;
+          persistAiResult();
+          isRegenDescInProgress = false;
+          if (hint) { hint.style.display = 'none'; }
+          updateDescRegenState();
+        });
       });
     }
 
@@ -436,6 +627,7 @@
 
       renderVariants();
       updateImageRegenButtonsState();
+      updateTextRegenButtonsState();
       bindEditing();
       bindRegeneration();
       bindPreviewModal();

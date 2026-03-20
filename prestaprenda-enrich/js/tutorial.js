@@ -36,14 +36,8 @@ function getTutorialPageName() {
   return path[path.length - 1] || 'index.html';
 }
 
-/* Builds a per-screen dismissal key so the popup only appears once per session. */
-function getTutorialDismissKey(pageName) {
-  return 'pp.tutorialDismissed.' + pageName;
-}
-
-/* Hides the popup and persists dismissal for the current screen. */
-function dismissTutorial(popover, pageName) {
-  sessionStorage.setItem(getTutorialDismissKey(pageName), '1');
+/* Hides the popup for the current visit only. */
+function dismissTutorial(popover) {
   popover.classList.add('is-closing');
   window.setTimeout(function () {
     popover.hidden = true;
@@ -56,9 +50,6 @@ function initTutorialPopover() {
   var pageName = getTutorialPageName();
   var content = TutorialContent[pageName];
   if (!content) {
-    return;
-  }
-  if (sessionStorage.getItem(getTutorialDismissKey(pageName)) === '1') {
     return;
   }
 
@@ -82,11 +73,11 @@ function initTutorialPopover() {
   document.body.appendChild(popover);
 
   popover.querySelector('.tutorial-popover-close').addEventListener('click', function () {
-    dismissTutorial(popover, pageName);
+    dismissTutorial(popover);
   });
 
   popover.querySelector('.tutorial-popover-dismiss').addEventListener('click', function () {
-    dismissTutorial(popover, pageName);
+    dismissTutorial(popover);
   });
 }
 

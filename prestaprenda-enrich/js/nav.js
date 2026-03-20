@@ -32,4 +32,28 @@ function initPageTransition() {
   });
 }
 
+/* Makes every topbar logo act as a shortcut to the funnel start page. */
+function bindLogoHomeNavigation() {
+  var logo = document.querySelector('.logo');
+  if (!logo) {
+    return;
+  }
+  logo.setAttribute('role', 'button');
+  logo.setAttribute('tabindex', '0');
+  logo.setAttribute('aria-label', 'Ir al inicio');
+
+  function goHome() {
+    window.location.href = 'index.html';
+  }
+
+  logo.addEventListener('click', goHome);
+  logo.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      goHome();
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', initPageTransition);
+document.addEventListener('DOMContentLoaded', bindLogoHomeNavigation);
