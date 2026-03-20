@@ -69,18 +69,8 @@
           <span class="field-label" style="margin:0;">Editar imagen</span>
           <button id="closeEditBtn" class="image-preview-close" type="button" aria-label="Cerrar" style="position:static;">&times;</button>
         </div>
-        <div class="edit-size-tabs">
-          <button class="edit-size-tab active" type="button" data-size="desktop">Desktop</button>
-          <button class="edit-size-tab" type="button" data-size="mobile">Mobile</button>
-          <button class="edit-size-tab" type="button" data-size="card">Card</button>
-        </div>
-        <div id="editVariantWrapper" class="edit-variant-wrapper">
-          <img id="editVariantImage" src="" alt="Variante actual" draggable="false">
-        </div>
-        <div class="crop-zoom-row">
-          <span class="crop-zoom-icon">−</span>
-          <input id="cropZoomSlider" type="range" min="100" max="300" value="100" class="crop-zoom-slider">
-          <span class="crop-zoom-icon">+</span>
+        <div id="editImagePreviewWrapper" class="edit-variant-wrapper simple-preview" style="aspect-ratio: 4 / 5;">
+          <img id="editImagePreview" src="" alt="Imagen actual" draggable="false">
         </div>
         <div class="edit-image-body">
           <label class="field-label" for="editPromptInput">Prompt para regenerar</label>
@@ -94,6 +84,33 @@
             </svg>
             <span>Regenerar imagen</span>
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="variationsModal" class="edit-image-modal" hidden>
+      <div class="edit-image-backdrop" id="variationsBackdrop"></div>
+      <div class="edit-image-sheet" role="dialog" aria-modal="true" aria-label="Variaciones de formato">
+        <div class="edit-image-header">
+          <span class="field-label" style="margin:0;">Variaciones de formato</span>
+          <button id="closeVariationsBtn" class="image-preview-close" type="button" aria-label="Cerrar" style="position:static;">&times;</button>
+        </div>
+        <div class="space-y">
+          <div id="variationSizeTabs" class="edit-size-tabs">
+            <button class="edit-size-tab active" type="button" data-size="desktop">Desktop</button>
+            <button class="edit-size-tab" type="button" data-size="mobile">Mobile</button>
+            <button class="edit-size-tab" type="button" data-size="card">Card</button>
+          </div>
+          <div id="variationWrapper" class="edit-variant-wrapper">
+            <img id="variationImage" src="" alt="Variación actual" draggable="false">
+          </div>
+          <div class="crop-zoom-row">
+            <span class="crop-zoom-icon">−</span>
+            <input id="variationZoomSlider" type="range" min="100" max="300" value="100" class="crop-zoom-slider">
+            <span class="crop-zoom-icon">+</span>
+          </div>
+          <p id="variationHint" class="text-secondary small" style="display:none; margin-top:4px;"></p>
+          <button id="variationSaveBtn" class="btn btn-primary" type="button" disabled>Guardar cambios</button>
         </div>
       </div>
     </div>
@@ -130,6 +147,7 @@
     var descriptionRegenIndex = 0;
     var currentEditIndex = -1;
     var currentEditSizeKey = 'card';
+    var variationDirtyState = {};
     var cropStates = {};           // key: "idx_sizeKey" → { zoom: 1.0, ox: 0, oy: 0 }
     var cropBaseScale = 1.0;       // scale so image covers wrapper at zoom=1
     var isDragging = false;
@@ -272,6 +290,27 @@
       }
     }
 
+    function getVariationDirtyKey() {
+      return String(currentEditIndex) + '_' + currentEditSizeKey;
+    }
+
+    function markVariationDirty(isDirty) {
+      variationDirtyState[getVariationDirtyKey()] = !!isDirty;
+      updateVariationSaveButtonState();
+    }
+
+    function hasVariationChanges() {
+      return !!variationDirtyState[getVariationDirtyKey()];
+    }
+
+    function updateVariationSaveButtonState() {
+      var saveBtn = document.getElementById('variationSaveBtn');
+      if (!saveBtn) {
+        return;
+      }
+      saveBtn.disabled = !hasVariationChanges() || isRegenInProgress || currentEditIndex < 0;
+    }
+
     function updateTitleRegenState() {
       var regenTitleBtn = document.getElementById('regenTitleBtn');
       var titleInput = document.getElementById('titleInput');
@@ -380,8 +419,8 @@
     }
 
     function clampCropOffset(state) {
-      var img = document.getElementById('editVariantImage');
-      var wrapper = document.getElementById('editVariantWrapper');
+      var img = document.getElementById('variationImage');
+      var wrapper = document.getElementById('variationWrapper');
       if (!img || !wrapper) return;
       var effW = (img.naturalWidth || 1) * cropBaseScale * state.zoom;
       var effH = (img.naturalHeight || 1) * cropBaseScale * state.zoom;
@@ -394,7 +433,7 @@
     }
 
     function renderCropPreview() {
-      var img = document.getElementById('editVariantImage');
+      var img = document.getElementById('variationImage');
       if (!img) return;
       var state = getCropState();
       var s = cropBaseScale * state.zoom;
@@ -402,14 +441,14 @@
         'translate(-50%, -50%) ' +
         'translate(' + state.ox.toFixed(1) + 'px, ' + state.oy.toFixed(1) + 'px) ' +
         'scale(' + s.toFixed(4) + ')';
-      var slider = document.getElementById('cropZoomSlider');
+      var slider = document.getElementById('variationZoomSlider');
       if (slider) slider.value = String(Math.round(state.zoom * 100));
     }
 
     function exportCurrentCrop() {
       return new Promise(function (resolve) {
-        var img = document.getElementById('editVariantImage');
-        var wrapper = document.getElementById('editVariantWrapper');
+        var img = document.getElementById('variationImage');
+        var wrapper = document.getElementById('variationWrapper');
         if (!img || !wrapper || !img.src) { resolve(null); return; }
         var state = getCropState();
         var fmt = getEditFormat();
@@ -441,8 +480,8 @@
     }
 
     function initCropForCurrentTab() {
-      var img = document.getElementById('editVariantImage');
-      var wrapper = document.getElementById('editVariantWrapper');
+      var img = document.getElementById('variationImage');
+      var wrapper = document.getElementById('variationWrapper');
       if (!img || !wrapper) return;
       var key = getCropStateKey();
       if (!cropStates[key]) cropStates[key] = { zoom: 1.0, ox: 0, oy: 0 };
@@ -483,6 +522,32 @@
       });
     }
 
+    function ensureVariantSizes(index) {
+      if (!Array.isArray(aiResult.variantSizes)) {
+        aiResult.variantSizes = [];
+      }
+      if (!aiResult.variantSizes[index]) {
+        aiResult.variantSizes[index] = {};
+      }
+      var sizes = aiResult.variantSizes[index];
+      var src = aiResult.variants[index] || '';
+      var pending = SIZE_FORMATS.filter(function (format) {
+        return !sizes[format.key];
+      });
+
+      if (!pending.length) {
+        return Promise.resolve();
+      }
+
+      return Promise.all(pending.map(function (format) {
+        return cropToAspectRatio(src, format.w, format.h).then(function (output) {
+          sizes[format.key] = output;
+        });
+      })).then(function () {
+        persistAiResult();
+      });
+    }
+
     function getEditFormat() {
       for (var i = 0; i < SIZE_FORMATS.length; i++) {
         if (SIZE_FORMATS[i].key === currentEditSizeKey) return SIZE_FORMATS[i];
@@ -491,22 +556,22 @@
     }
 
     function updateEditVariantPreview() {
-      var img = document.getElementById('editVariantImage');
-      var wrapper = document.getElementById('editVariantWrapper');
+      var img = document.getElementById('variationImage');
+      var wrapper = document.getElementById('variationWrapper');
       var fmt = getEditFormat();
-      var src = aiResult.variants[currentEditIndex] || '';
+      var variantSizes = Array.isArray(aiResult.variantSizes) ? aiResult.variantSizes[currentEditIndex] : null;
+      var src = (variantSizes && variantSizes[fmt.key]) || aiResult.variants[currentEditIndex] || '';
       if (img) {
         img.src = src;
         img.alt = 'Variante ' + String(currentEditIndex + 1) + ' – ' + fmt.label;
         img.style.transform = '';
       }
       if (wrapper) wrapper.style.aspectRatio = String(fmt.w) + ' / ' + String(fmt.h);
-      /* slight delay to let layout settle before computing base scale */
       window.requestAnimationFrame(function () { initCropForCurrentTab(); });
     }
 
     function updateEditSizeTabs() {
-      document.querySelectorAll('.edit-size-tab').forEach(function (tab) {
+      document.querySelectorAll('#variationSizeTabs .edit-size-tab').forEach(function (tab) {
         tab.classList.toggle('active', tab.dataset.size === currentEditSizeKey);
       });
     }
@@ -515,21 +580,39 @@
       currentEditSizeKey = key;
       updateEditSizeTabs();
       updateEditVariantPreview();
+      updateVariationSaveButtonState();
     }
 
     function openEditImageModal(index) {
       currentEditIndex = index;
-      currentEditSizeKey = 'card';
       var modal = document.getElementById('editImageModal');
+      var image = document.getElementById('editImagePreview');
       var promptEl = document.getElementById('editPromptInput');
       var hint = document.getElementById('editIaHint');
       if (promptEl) promptEl.value = '';
       if (hint) hint.style.display = 'none';
-      updateEditSizeTabs();
-      updateEditVariantPreview();
+      if (image) {
+        image.src = aiResult.variants[index] || '';
+        image.alt = 'Variante ' + String(index + 1);
+      }
       modal.hidden = false;
       document.body.style.overflow = 'hidden';
       updateImageRegenButtonsState();
+    }
+
+    function openVariationsModal(index) {
+      currentEditIndex = index;
+      currentEditSizeKey = 'desktop';
+      var modal = document.getElementById('variationsModal');
+      var hint = document.getElementById('variationHint');
+      if (hint) hint.style.display = 'none';
+      ensureVariantSizes(index).then(function () {
+        updateEditSizeTabs();
+        updateEditVariantPreview();
+        updateVariationSaveButtonState();
+      });
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
     }
 
     function closeEditImageModal() {
@@ -538,93 +621,53 @@
       currentEditIndex = -1;
     }
 
-    function bindEditImageModal() {
-      var wrapper = document.getElementById('editVariantWrapper');
+    function closeVariationsModal() {
+      document.getElementById('variationsModal').hidden = true;
+      document.body.style.overflow = '';
+      currentEditIndex = -1;
+    }
 
+    function bindEditImageModal() {
       document.getElementById('closeEditBtn').addEventListener('click', closeEditImageModal);
       document.getElementById('editImageBackdrop').addEventListener('click', closeEditImageModal);
-
-      document.querySelectorAll('.edit-size-tab').forEach(function (tab) {
-        tab.addEventListener('click', function () { selectEditSize(tab.dataset.size); });
-      });
-
-      /* ── Drag to pan ── */
-      function onDragStart(cx, cy) {
-        if (currentEditIndex < 0) return;
-        isDragging = true;
-        var state = getCropState();
-        dragStartX = cx; dragStartY = cy;
-        dragStartOX = state.ox; dragStartOY = state.oy;
-        wrapper.classList.add('dragging');
-      }
-      function onDragMove(cx, cy) {
-        if (!isDragging) return;
-        var state = getCropState();
-        state.ox = dragStartOX + (cx - dragStartX);
-        state.oy = dragStartOY + (cy - dragStartY);
-        clampCropOffset(state);
-        renderCropPreview();
-      }
-      function onDragEnd() {
-        isDragging = false;
-        if (wrapper) wrapper.classList.remove('dragging');
-      }
-
-      wrapper.addEventListener('mousedown', function (e) { e.preventDefault(); onDragStart(e.clientX, e.clientY); });
-      window.addEventListener('mousemove', function (e) { onDragMove(e.clientX, e.clientY); });
-      window.addEventListener('mouseup', onDragEnd);
-
-      wrapper.addEventListener('touchstart', function (e) {
-        if (e.touches.length === 1) { e.preventDefault(); onDragStart(e.touches[0].clientX, e.touches[0].clientY); }
-      }, { passive: false });
-      wrapper.addEventListener('touchmove', function (e) {
-        if (e.touches.length === 1) { e.preventDefault(); onDragMove(e.touches[0].clientX, e.touches[0].clientY); }
-      }, { passive: false });
-      wrapper.addEventListener('touchend', onDragEnd);
-
-      /* ── Zoom slider ── */
-      document.getElementById('cropZoomSlider').addEventListener('input', function () {
-        if (currentEditIndex < 0) return;
-        var state = getCropState();
-        state.zoom = Number(this.value) / 100;
-        clampCropOffset(state);
-        renderCropPreview();
-      });
 
       document.getElementById('editPromptInput').addEventListener('input', function () {
         updateImageRegenButtonsState();
       });
 
-      /* ── Regenerar imagen ── */
       document.getElementById('editRegenBtn').addEventListener('click', function () {
         if (isRegenInProgress || currentEditIndex < 0) { return; }
         var index = currentEditIndex;
-        var fmt = getEditFormat();
         var prompt = document.getElementById('editPromptInput').value || '';
         var hint = document.getElementById('editIaHint');
         var btn = document.getElementById('editRegenBtn');
 
         isRegenInProgress = true;
         if (btn) btn.disabled = true;
-        if (hint) { hint.textContent = 'Consultando IA para regenerar ' + fmt.label + '...'; hint.style.display = 'block'; }
+        if (hint) {
+          hint.textContent = 'Consultando IA para regenerar imagen...';
+          hint.style.display = 'block';
+        }
 
         var startedAt = Date.now();
-        exportCurrentCrop()
-          .then(function (cropped) {
-            return createSubtleVariantFromSource(cropped || aiResult.variants[index], prompt, index);
-          })
+        createSubtleVariantFromSource(aiResult.variants[index], prompt, index)
           .then(function (nextVariant) {
             var remaining = Math.max(0, 1000 - (Date.now() - startedAt));
             return wait(remaining).then(function () { return nextVariant; });
           })
           .then(function (nextVariant) {
             aiResult.variants[index] = nextVariant;
-            /* reset crop state for this variant so it re-fits the new image */
-            var key = getCropStateKey();
-            cropStates[key] = { zoom: 1.0, ox: 0, oy: 0 };
+            if (Array.isArray(aiResult.variantSizes) && aiResult.variantSizes[index]) {
+              aiResult.variantSizes[index] = {};
+            }
             persistAiResult();
             renderVariants();
-            if (currentEditIndex === index) updateEditVariantPreview();
+            if (currentEditIndex === index) {
+              var image = document.getElementById('editImagePreview');
+              if (image) {
+                image.src = nextVariant;
+              }
+            }
           })
           .finally(function () {
             isRegenInProgress = false;
@@ -636,6 +679,117 @@
       document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape' && !document.getElementById('editImageModal').hidden) {
           closeEditImageModal();
+        }
+      });
+    }
+
+    function bindVariationsModal() {
+      var wrapper = document.getElementById('variationWrapper');
+
+      document.getElementById('closeVariationsBtn').addEventListener('click', closeVariationsModal);
+      document.getElementById('variationsBackdrop').addEventListener('click', closeVariationsModal);
+
+      document.querySelectorAll('#variationSizeTabs .edit-size-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () { selectEditSize(tab.dataset.size); });
+      });
+
+      function onDragStart(cx, cy) {
+        if (currentEditIndex < 0) return;
+        isDragging = true;
+        var state = getCropState();
+        dragStartX = cx;
+        dragStartY = cy;
+        dragStartOX = state.ox;
+        dragStartOY = state.oy;
+        wrapper.classList.add('dragging');
+      }
+
+      function onDragMove(cx, cy) {
+        if (!isDragging) return;
+        var state = getCropState();
+        state.ox = dragStartOX + (cx - dragStartX);
+        state.oy = dragStartOY + (cy - dragStartY);
+        clampCropOffset(state);
+        renderCropPreview();
+        markVariationDirty(true);
+      }
+
+      function onDragEnd() {
+        isDragging = false;
+        wrapper.classList.remove('dragging');
+      }
+
+      wrapper.addEventListener('mousedown', function (event) { event.preventDefault(); onDragStart(event.clientX, event.clientY); });
+      window.addEventListener('mousemove', function (event) { onDragMove(event.clientX, event.clientY); });
+      window.addEventListener('mouseup', onDragEnd);
+
+      wrapper.addEventListener('touchstart', function (event) {
+        if (event.touches.length === 1) {
+          event.preventDefault();
+          onDragStart(event.touches[0].clientX, event.touches[0].clientY);
+        }
+      }, { passive: false });
+      wrapper.addEventListener('touchmove', function (event) {
+        if (event.touches.length === 1) {
+          event.preventDefault();
+          onDragMove(event.touches[0].clientX, event.touches[0].clientY);
+        }
+      }, { passive: false });
+      wrapper.addEventListener('touchend', onDragEnd);
+
+      document.getElementById('variationZoomSlider').addEventListener('input', function () {
+        if (currentEditIndex < 0) return;
+        var state = getCropState();
+        state.zoom = Number(this.value) / 100;
+        clampCropOffset(state);
+        renderCropPreview();
+        markVariationDirty(true);
+      });
+
+      document.getElementById('variationSaveBtn').addEventListener('click', function () {
+        if (currentEditIndex < 0 || isRegenInProgress || !hasVariationChanges()) {
+          return;
+        }
+
+        var index = currentEditIndex;
+        var format = getEditFormat();
+        var saveBtn = document.getElementById('variationSaveBtn');
+        var hint = document.getElementById('variationHint');
+        isRegenInProgress = true;
+        updateVariationSaveButtonState();
+        if (hint) {
+          hint.textContent = 'Guardando cambios de ' + format.label + '...';
+          hint.style.display = 'block';
+        }
+
+        exportCurrentCrop()
+          .then(function (output) {
+            if (!Array.isArray(aiResult.variantSizes)) {
+              aiResult.variantSizes = [];
+            }
+            if (!aiResult.variantSizes[index]) {
+              aiResult.variantSizes[index] = {};
+            }
+            aiResult.variantSizes[index][format.key] = output || aiResult.variants[index];
+            if (format.key === 'card' && output) {
+              aiResult.variants[index] = output;
+              renderVariants();
+            }
+            persistAiResult();
+            markVariationDirty(false);
+            updateEditVariantPreview();
+          })
+          .finally(function () {
+            isRegenInProgress = false;
+            if (hint) hint.style.display = 'none';
+            if (saveBtn) saveBtn.blur();
+            updateVariationSaveButtonState();
+          });
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !document.getElementById('variationsModal').hidden) {
+          closeVariationsModal();
         }
       });
     }
@@ -774,7 +928,7 @@
             '<button class="btn btn-secondary edit-one-btn" type="button" data-index="' + String(index) + '">' +
               'Editar imagen' +
             '</button>' +
-            '<p class="variant-note">+3 variaciones</p>' +
+            '<button class="variant-note-link" type="button" data-index="' + String(index) + '">+3 variaciones</button>' +
           '</div>';
         row.appendChild(card);
       });
@@ -782,6 +936,12 @@
       row.querySelectorAll('.edit-one-btn').forEach(function (button) {
         button.addEventListener('click', function () {
           openEditImageModal(Number(button.dataset.index || 0));
+        });
+      });
+
+      row.querySelectorAll('.variant-note-link').forEach(function (button) {
+        button.addEventListener('click', function () {
+          openVariationsModal(Number(button.dataset.index || 0));
         });
       });
 
@@ -887,6 +1047,7 @@
       bindRegeneration();
       bindPreviewModal();
       bindEditImageModal();
+      bindVariationsModal();
 
       document.getElementById('publishBtn').addEventListener('click', function () {
         var pending = getState(StateKeys.pendingCount, 42);
