@@ -990,15 +990,32 @@ body {
 .variant-footer {
   min-height: 50px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   padding: 6px;
+}
+
+.variant-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--color-text-secondary);
+  opacity: 0.78;
 }
 
 .regen-one-btn {
   min-height: 36px;
   font-size: 12px;
   width: 100%;
+}
+
+.edit-one-btn {
+  min-height: 30px;
+  font-size: 11px;
+  padding: 0 10px;
+  border-radius: 8px;
 }
 
 .image-preview-modal {
