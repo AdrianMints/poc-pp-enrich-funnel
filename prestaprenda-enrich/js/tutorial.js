@@ -2,7 +2,7 @@
 const TutorialContent = {
   'index.html': {
     title: 'Selecciona una prenda',
-    body: 'Elige directamente una prenda de la lista de pendientes del sistema, o usa el buscador para encontrarla por SKU o nombre. Una vez seleccionada, el botón inferior se activa para continuar.'
+    body: 'Elige directamente una prenda de la lista de pendientes del sistema, o usa el buscador para encontrarla por SKU. Una vez seleccionada, el botón inferior se activa para continuar.'
   },
   'preview.html': {
     title: 'Preview de datos base',
@@ -10,7 +10,7 @@ const TutorialContent = {
   },
   'photos.html': {
     title: 'Captura guiada',
-    body: 'Puedes tomar hasta 4 fotos siguiendo la referencia visual o saltar este paso con el botón inferior para seguir navegando la demo.'
+    body: 'Sigue la guía de referencia para capturar las 4 fotos requeridas. Cada toma se valida automáticamente; si alguna no pasa la verificación, el sistema te pedirá repetirla. El botón Continuar se activa solo cuando todas las fotos son válidas.'
   },
   'details.html': {
     title: 'Datos del valuador',
@@ -22,7 +22,7 @@ const TutorialContent = {
   },
   'review.html': {
     title: 'Revisión editable',
-    body: 'Aquí eliges una variante visual y puedes editar título o descripción. Si no modificas nada, igual puedes publicar y cerrar el flujo.'
+    body: 'Escribe un prompt para guiar la regeneración de imágenes, elige la variante que más te guste y ajusta título o descripción si lo necesitas. Cuando todo esté listo, pulsa Publicar para cerrar el flujo.'
   },
   'success.html': {
     title: 'Publicación final',
