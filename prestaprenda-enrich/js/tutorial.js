@@ -13,7 +13,7 @@ const TutorialContent = {
     body: 'Sigue la guía de referencia para capturar las 4 fotos requeridas. Cada toma se valida automáticamente; si alguna no pasa la verificación, el sistema te pedirá repetirla. El botón Continuar se activa solo cuando todas las fotos son válidas.'
   },
   'details.html': {
-    title: 'Datos del valuador',
+    title: 'Detalles de la prenda',
     body: 'Estos controles solo ilustran el formulario futuro. Puedes tocar uno, varios o ningún campo y continuar sin validación.'
   },
   'loading.html': {
