@@ -1061,6 +1061,134 @@ body {
   cursor: pointer;
 }
 
+.edit-image-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.edit-image-modal[hidden] {
+  display: none;
+}
+
+.edit-image-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 18, 36, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.edit-image-sheet {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: var(--screen-max);
+  background: var(--color-surface);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 16px calc(24px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.edit-image-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.edit-size-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--color-bg, #F7F7F5);
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.edit-size-tab {
+  flex: 1;
+  border-radius: 8px;
+  padding: 6px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+}
+
+.edit-size-tab.active {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 4px rgba(26, 43, 94, 0.12);
+}
+
+.edit-variant-wrapper {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #1a1a1a;
+  position: relative;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: aspect-ratio 200ms ease;
+}
+
+.edit-variant-wrapper.dragging {
+  cursor: grabbing;
+}
+
+.edit-variant-wrapper img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  user-select: none;
+  max-width: none;
+  max-height: none;
+  display: block;
+}
+
+/* ── Zoom slider ── */
+.crop-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.crop-zoom-icon {
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  line-height: 1;
+  width: 20px;
+  text-align: center;
+  cursor: default;
+  user-select: none;
+}
+
+.crop-zoom-slider {
+  flex: 1;
+  height: 4px;
+  accent-color: var(--color-ia);
+  cursor: pointer;
+}
+
+.edit-image-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .center-success {
   min-height: calc(100vh - 180px);
   display: flex;

@@ -30,25 +30,7 @@
       </div>
 
       <article class="card space-y">
-        <div>
-          <label class="field-label" for="regenPrompt">Prompt para regenerar imágenes</label>
-          <textarea id="regenPrompt" class="textarea" rows="2" placeholder="Ej. fondo blanco, luz suave, vista frontal, alta nitidez"></textarea>
-        </div>
-
         <div id="variantRow" class="variant-row"></div>
-
-        <div class="review-actions-row">
-          <button id="regenAllBtn" class="btn btn-secondary ai-regen-btn" type="button" disabled>
-            <svg class="ai-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M12 2.5l1.5 3.7 3.9 1.6-3.9 1.6L12 13l-1.5-3.6-3.9-1.6 3.9-1.6L12 2.5z"></path>
-              <path d="M18.2 11.8l.9 2.2 2.3.9-2.3.9-.9 2.2-.9-2.2-2.3-.9 2.3-.9.9-2.2z"></path>
-              <path d="M7 13.5l1.2 2.9 3 .1-2.3 1.9.8 2.9L7 19.6l-2.7 1.7.8-2.9-2.3-1.9 3-.1L7 13.5z"></path>
-            </svg>
-            <span>Regenerar 4 variantes</span>
-          </button>
-        </div>
-
-        <p id="iaThinkingHint" class="text-secondary small" style="display:none;">Consultando IA...</p>
       </article>
 
       <article class="card space-y">
@@ -80,6 +62,42 @@
       <button id="publishBtn" class="btn btn-primary" type="button">Publicar en catálogo</button>
     </div>
 
+    <div id="editImageModal" class="edit-image-modal" hidden>
+      <div class="edit-image-backdrop" id="editImageBackdrop"></div>
+      <div class="edit-image-sheet" role="dialog" aria-modal="true" aria-label="Editar imagen">
+        <div class="edit-image-header">
+          <span class="field-label" style="margin:0;">Editar imagen</span>
+          <button id="closeEditBtn" class="image-preview-close" type="button" aria-label="Cerrar" style="position:static;">&times;</button>
+        </div>
+        <div class="edit-size-tabs">
+          <button class="edit-size-tab active" type="button" data-size="desktop">Desktop</button>
+          <button class="edit-size-tab" type="button" data-size="mobile">Mobile</button>
+          <button class="edit-size-tab" type="button" data-size="card">Card</button>
+        </div>
+        <div id="editVariantWrapper" class="edit-variant-wrapper">
+          <img id="editVariantImage" src="" alt="Variante actual" draggable="false">
+        </div>
+        <div class="crop-zoom-row">
+          <span class="crop-zoom-icon">−</span>
+          <input id="cropZoomSlider" type="range" min="100" max="300" value="100" class="crop-zoom-slider">
+          <span class="crop-zoom-icon">+</span>
+        </div>
+        <div class="edit-image-body">
+          <label class="field-label" for="editPromptInput">Prompt para regenerar</label>
+          <textarea id="editPromptInput" class="textarea" rows="2" placeholder="Ej. fondo blanco, luz suave, vista frontal, alta nitidez"></textarea>
+          <p id="editIaHint" class="text-secondary small" style="display:none; margin-top:4px;"></p>
+          <button id="editRegenBtn" class="btn btn-primary ai-regen-btn" type="button" disabled>
+            <svg class="ai-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 2.5l1.5 3.7 3.9 1.6-3.9 1.6L12 13l-1.5-3.6-3.9-1.6 3.9-1.6L12 2.5z"></path>
+              <path d="M18.2 11.8l.9 2.2 2.3.9-2.3.9-.9 2.2-.9-2.2-2.3-.9 2.3-.9.9-2.2z"></path>
+              <path d="M7 13.5l1.2 2.9 3 .1-2.3 1.9.8 2.9L7 19.6l-2.7 1.7.8-2.9-2.3-1.9 3-.1L7 13.5z"></path>
+            </svg>
+            <span>Regenerar imagen</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div id="imagePreviewModal" class="image-preview-modal" hidden>
       <div class="image-preview-backdrop" data-close-preview="true"></div>
       <div class="image-preview-dialog" role="dialog" aria-modal="true" aria-label="Vista completa de imagen">
@@ -96,14 +114,26 @@
     var aiResult = {
       title: '',
       description: '',
-      variants: []
+      variants: [],
+      variantSizes: []
     };
     var VARIANT_COUNT = 4;
+    var SIZE_FORMATS = [
+      { key: 'desktop', label: 'Desktop', w: 1200, h: 628 },
+      { key: 'mobile',  label: 'Mobile',  w: 390,  h: 844 },
+      { key: 'card',    label: 'Card',    w: 400,  h: 500 }
+    ];
     var isRegenInProgress = false;
     var isRegenTitleInProgress = false;
     var isRegenDescInProgress = false;
     var titleRegenIndex = 0;
     var descriptionRegenIndex = 0;
+    var currentEditIndex = -1;
+    var currentEditSizeKey = 'card';
+    var cropStates = {};           // key: "idx_sizeKey" → { zoom: 1.0, ox: 0, oy: 0 }
+    var cropBaseScale = 1.0;       // scale so image covers wrapper at zoom=1
+    var isDragging = false;
+    var dragStartX = 0, dragStartY = 0, dragStartOX = 0, dragStartOY = 0;
 
     function escapeXml(text) {
       return String(text || '')
@@ -230,19 +260,16 @@
     }
 
     function hasPromptValue() {
-      var promptInput = document.getElementById('regenPrompt');
+      var promptInput = document.getElementById('editPromptInput');
       return !!(promptInput && promptInput.value && promptInput.value.trim());
     }
 
     function updateImageRegenButtonsState() {
+      var editRegenBtn = document.getElementById('editRegenBtn');
       var enabled = hasPromptValue() && !isRegenInProgress;
-      var regenAllBtn = document.getElementById('regenAllBtn');
-      if (regenAllBtn) {
-        regenAllBtn.disabled = !enabled;
+      if (editRegenBtn) {
+        editRegenBtn.disabled = !enabled;
       }
-      document.querySelectorAll('.regen-one-btn').forEach(function (button) {
-        button.disabled = !enabled;
-      });
     }
 
     function updateTitleRegenState() {
@@ -330,6 +357,287 @@
       modal.hidden = true;
       preview.src = '';
       document.body.style.overflow = '';
+    }
+
+    function getCropStateKey() {
+      return String(currentEditIndex) + '_' + currentEditSizeKey;
+    }
+
+    function getCropState() {
+      var key = getCropStateKey();
+      if (!cropStates[key]) cropStates[key] = { zoom: 1.0, ox: 0, oy: 0 };
+      return cropStates[key];
+    }
+
+    function computeBaseScale(img, wrapper) {
+      var iw = img.naturalWidth || 1;
+      var ih = img.naturalHeight || 1;
+      var ww = wrapper.clientWidth || 1;
+      var wh = wrapper.clientHeight || 1;
+      var scaleByW = ww / iw;
+      var scaleByH = wh / ih;
+      return Math.max(scaleByW, scaleByH);
+    }
+
+    function clampCropOffset(state) {
+      var img = document.getElementById('editVariantImage');
+      var wrapper = document.getElementById('editVariantWrapper');
+      if (!img || !wrapper) return;
+      var effW = (img.naturalWidth || 1) * cropBaseScale * state.zoom;
+      var effH = (img.naturalHeight || 1) * cropBaseScale * state.zoom;
+      var ww = wrapper.clientWidth;
+      var wh = wrapper.clientHeight;
+      var maxOX = Math.max(0, (effW - ww) / 2);
+      var maxOY = Math.max(0, (effH - wh) / 2);
+      state.ox = Math.min(maxOX, Math.max(-maxOX, state.ox));
+      state.oy = Math.min(maxOY, Math.max(-maxOY, state.oy));
+    }
+
+    function renderCropPreview() {
+      var img = document.getElementById('editVariantImage');
+      if (!img) return;
+      var state = getCropState();
+      var s = cropBaseScale * state.zoom;
+      img.style.transform =
+        'translate(-50%, -50%) ' +
+        'translate(' + state.ox.toFixed(1) + 'px, ' + state.oy.toFixed(1) + 'px) ' +
+        'scale(' + s.toFixed(4) + ')';
+      var slider = document.getElementById('cropZoomSlider');
+      if (slider) slider.value = String(Math.round(state.zoom * 100));
+    }
+
+    function exportCurrentCrop() {
+      return new Promise(function (resolve) {
+        var img = document.getElementById('editVariantImage');
+        var wrapper = document.getElementById('editVariantWrapper');
+        if (!img || !wrapper || !img.src) { resolve(null); return; }
+        var state = getCropState();
+        var fmt = getEditFormat();
+        var natW = img.naturalWidth;
+        var natH = img.naturalHeight;
+        var ww = wrapper.clientWidth;
+        var wh = wrapper.clientHeight;
+        var dispScale = cropBaseScale * state.zoom;
+        /* top-left of image in wrapper CSS space */
+        var imgLeft = ww / 2 + state.ox - natW * dispScale / 2;
+        var imgTop  = wh / 2 + state.oy - natH * dispScale / 2;
+        /* visible crop in natural image pixels */
+        var cropX = -imgLeft / dispScale;
+        var cropY = -imgTop  / dispScale;
+        var cropW = ww / dispScale;
+        var cropH = wh / dispScale;
+        var outW = Math.min(fmt.w, 900);
+        var outH = Math.round(outW * (fmt.h / fmt.w));
+        var canvas = document.createElement('canvas');
+        canvas.width = outW; canvas.height = outH;
+        var srcImg = new Image();
+        srcImg.onload = function () {
+          canvas.getContext('2d').drawImage(srcImg, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
+          resolve(canvas.toDataURL('image/jpeg', 0.92));
+        };
+        srcImg.onerror = function () { resolve(img.src); };
+        srcImg.src = img.src;
+      });
+    }
+
+    function initCropForCurrentTab() {
+      var img = document.getElementById('editVariantImage');
+      var wrapper = document.getElementById('editVariantWrapper');
+      if (!img || !wrapper) return;
+      var key = getCropStateKey();
+      if (!cropStates[key]) cropStates[key] = { zoom: 1.0, ox: 0, oy: 0 };
+      if (img.complete && img.naturalWidth) {
+        cropBaseScale = computeBaseScale(img, wrapper);
+        renderCropPreview();
+      } else {
+        img.onload = function () {
+          cropBaseScale = computeBaseScale(img, wrapper);
+          renderCropPreview();
+        };
+      }
+    }
+
+    function cropToAspectRatio(src, targetW, targetH) {
+      return new Promise(function (resolve) {
+        var img = new Image();
+        img.onload = function () {
+          var srcW = img.naturalWidth;
+          var srcH = img.naturalHeight;
+          var tRatio = targetW / targetH;
+          var sRatio = srcW / srcH;
+          var cropW, cropH, ox, oy;
+          if (sRatio > tRatio) {
+            cropH = srcH; cropW = srcH * tRatio; ox = (srcW - cropW) / 2; oy = 0;
+          } else {
+            cropW = srcW; cropH = srcW / tRatio; ox = 0; oy = (srcH - cropH) / 2;
+          }
+          var outW = Math.min(targetW, 800);
+          var outH = Math.round(outW / tRatio);
+          var canvas = document.createElement('canvas');
+          canvas.width = outW; canvas.height = outH;
+          canvas.getContext('2d').drawImage(img, ox, oy, cropW, cropH, 0, 0, outW, outH);
+          resolve(canvas.toDataURL('image/jpeg', 0.92));
+        };
+        img.onerror = function () { resolve(src); };
+        img.src = src;
+      });
+    }
+
+    function getEditFormat() {
+      for (var i = 0; i < SIZE_FORMATS.length; i++) {
+        if (SIZE_FORMATS[i].key === currentEditSizeKey) return SIZE_FORMATS[i];
+      }
+      return SIZE_FORMATS[2];
+    }
+
+    function updateEditVariantPreview() {
+      var img = document.getElementById('editVariantImage');
+      var wrapper = document.getElementById('editVariantWrapper');
+      var fmt = getEditFormat();
+      var src = aiResult.variants[currentEditIndex] || '';
+      if (img) {
+        img.src = src;
+        img.alt = 'Variante ' + String(currentEditIndex + 1) + ' – ' + fmt.label;
+        img.style.transform = '';
+      }
+      if (wrapper) wrapper.style.aspectRatio = String(fmt.w) + ' / ' + String(fmt.h);
+      /* slight delay to let layout settle before computing base scale */
+      window.requestAnimationFrame(function () { initCropForCurrentTab(); });
+    }
+
+    function updateEditSizeTabs() {
+      document.querySelectorAll('.edit-size-tab').forEach(function (tab) {
+        tab.classList.toggle('active', tab.dataset.size === currentEditSizeKey);
+      });
+    }
+
+    function selectEditSize(key) {
+      currentEditSizeKey = key;
+      updateEditSizeTabs();
+      updateEditVariantPreview();
+    }
+
+    function openEditImageModal(index) {
+      currentEditIndex = index;
+      currentEditSizeKey = 'card';
+      var modal = document.getElementById('editImageModal');
+      var promptEl = document.getElementById('editPromptInput');
+      var hint = document.getElementById('editIaHint');
+      if (promptEl) promptEl.value = '';
+      if (hint) hint.style.display = 'none';
+      updateEditSizeTabs();
+      updateEditVariantPreview();
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      updateImageRegenButtonsState();
+    }
+
+    function closeEditImageModal() {
+      document.getElementById('editImageModal').hidden = true;
+      document.body.style.overflow = '';
+      currentEditIndex = -1;
+    }
+
+    function bindEditImageModal() {
+      var wrapper = document.getElementById('editVariantWrapper');
+
+      document.getElementById('closeEditBtn').addEventListener('click', closeEditImageModal);
+      document.getElementById('editImageBackdrop').addEventListener('click', closeEditImageModal);
+
+      document.querySelectorAll('.edit-size-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () { selectEditSize(tab.dataset.size); });
+      });
+
+      /* ── Drag to pan ── */
+      function onDragStart(cx, cy) {
+        if (currentEditIndex < 0) return;
+        isDragging = true;
+        var state = getCropState();
+        dragStartX = cx; dragStartY = cy;
+        dragStartOX = state.ox; dragStartOY = state.oy;
+        wrapper.classList.add('dragging');
+      }
+      function onDragMove(cx, cy) {
+        if (!isDragging) return;
+        var state = getCropState();
+        state.ox = dragStartOX + (cx - dragStartX);
+        state.oy = dragStartOY + (cy - dragStartY);
+        clampCropOffset(state);
+        renderCropPreview();
+      }
+      function onDragEnd() {
+        isDragging = false;
+        if (wrapper) wrapper.classList.remove('dragging');
+      }
+
+      wrapper.addEventListener('mousedown', function (e) { e.preventDefault(); onDragStart(e.clientX, e.clientY); });
+      window.addEventListener('mousemove', function (e) { onDragMove(e.clientX, e.clientY); });
+      window.addEventListener('mouseup', onDragEnd);
+
+      wrapper.addEventListener('touchstart', function (e) {
+        if (e.touches.length === 1) { e.preventDefault(); onDragStart(e.touches[0].clientX, e.touches[0].clientY); }
+      }, { passive: false });
+      wrapper.addEventListener('touchmove', function (e) {
+        if (e.touches.length === 1) { e.preventDefault(); onDragMove(e.touches[0].clientX, e.touches[0].clientY); }
+      }, { passive: false });
+      wrapper.addEventListener('touchend', onDragEnd);
+
+      /* ── Zoom slider ── */
+      document.getElementById('cropZoomSlider').addEventListener('input', function () {
+        if (currentEditIndex < 0) return;
+        var state = getCropState();
+        state.zoom = Number(this.value) / 100;
+        clampCropOffset(state);
+        renderCropPreview();
+      });
+
+      document.getElementById('editPromptInput').addEventListener('input', function () {
+        updateImageRegenButtonsState();
+      });
+
+      /* ── Regenerar imagen ── */
+      document.getElementById('editRegenBtn').addEventListener('click', function () {
+        if (isRegenInProgress || currentEditIndex < 0) { return; }
+        var index = currentEditIndex;
+        var fmt = getEditFormat();
+        var prompt = document.getElementById('editPromptInput').value || '';
+        var hint = document.getElementById('editIaHint');
+        var btn = document.getElementById('editRegenBtn');
+
+        isRegenInProgress = true;
+        if (btn) btn.disabled = true;
+        if (hint) { hint.textContent = 'Consultando IA para regenerar ' + fmt.label + '...'; hint.style.display = 'block'; }
+
+        var startedAt = Date.now();
+        exportCurrentCrop()
+          .then(function (cropped) {
+            return createSubtleVariantFromSource(cropped || aiResult.variants[index], prompt, index);
+          })
+          .then(function (nextVariant) {
+            var remaining = Math.max(0, 1000 - (Date.now() - startedAt));
+            return wait(remaining).then(function () { return nextVariant; });
+          })
+          .then(function (nextVariant) {
+            aiResult.variants[index] = nextVariant;
+            /* reset crop state for this variant so it re-fits the new image */
+            var key = getCropStateKey();
+            cropStates[key] = { zoom: 1.0, ox: 0, oy: 0 };
+            persistAiResult();
+            renderVariants();
+            if (currentEditIndex === index) updateEditVariantPreview();
+          })
+          .finally(function () {
+            isRegenInProgress = false;
+            if (hint) hint.style.display = 'none';
+            updateImageRegenButtonsState();
+          });
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !document.getElementById('editImageModal').hidden) {
+          closeEditImageModal();
+        }
+      });
     }
 
     function bindPreviewModal() {
@@ -453,44 +761,26 @@
       ];
     }
 
-    /* Draws generated variant cards with per-item regeneration actions. */
+    /* Draws generated variant cards with per-item edit actions. */
     function renderVariants() {
       var row = document.getElementById('variantRow');
       row.innerHTML = '';
-      var enabled = hasPromptValue() && !isRegenInProgress;
       aiResult.variants.forEach(function (src, index) {
         var card = document.createElement('article');
         card.className = 'variant-card';
         card.innerHTML =
           '<img src="' + src + '" alt="Variante ' + String(index + 1) + '">' +
           '<div class="variant-footer">' +
-            '<button class="btn btn-secondary regen-one-btn ai-regen-btn" type="button" data-index="' + String(index) + '" ' + (!enabled ? 'disabled' : '') + '>' +
-              getAiIconMarkup() +
-              '<span>Regenerar imagen</span>' +
+            '<button class="btn btn-secondary edit-one-btn" type="button" data-index="' + String(index) + '">' +
+              'Editar imagen' +
             '</button>' +
           '</div>';
         row.appendChild(card);
       });
 
-      row.querySelectorAll('.regen-one-btn').forEach(function (button) {
+      row.querySelectorAll('.edit-one-btn').forEach(function (button) {
         button.addEventListener('click', function () {
-          if (!hasPromptValue()) {
-            return;
-          }
-          if (isRegenInProgress) {
-            return;
-          }
-          var index = Number(button.dataset.index || 0);
-          var prompt = document.getElementById('regenPrompt').value || '';
-          var source = aiResult.variants[index];
-          runWithIaDelay(function () {
-            return createSubtleVariantFromSource(source, prompt, index)
-              .then(function (nextVariant) {
-                aiResult.variants[index] = nextVariant;
-                persistAiResult();
-                renderVariants();
-              });
-          }, 'Consultando IA para regenerar imagen...', 'images');
+          openEditImageModal(Number(button.dataset.index || 0));
         });
       });
 
@@ -502,37 +792,10 @@
     }
 
     function bindRegeneration() {
-      var regenAllBtn = document.getElementById('regenAllBtn');
       var regenTitleBtn = document.getElementById('regenTitleBtn');
       var regenDescBtn = document.getElementById('regenDescBtn');
       var titleInput = document.getElementById('titleInput');
       var descriptionInput = document.getElementById('descriptionInput');
-      var regenPrompt = document.getElementById('regenPrompt');
-
-      regenAllBtn.addEventListener('click', function () {
-        if (!hasPromptValue()) {
-          return;
-        }
-        if (isRegenInProgress) {
-          return;
-        }
-        var prompt = document.getElementById('regenPrompt').value || '';
-        var currentSources = aiResult.variants.slice(0, VARIANT_COUNT);
-        runWithIaDelay(function () {
-          return Promise.all(currentSources.map(function (source, index) {
-            return createSubtleVariantFromSource(source, prompt, index);
-          }))
-            .then(function (nextVariants) {
-              aiResult.variants = nextVariants;
-              persistAiResult();
-              renderVariants();
-            });
-        }, 'Consultando IA para regenerar variantes...', 'images');
-      });
-
-      regenPrompt.addEventListener('input', function () {
-        updateImageRegenButtonsState();
-      });
 
       regenTitleBtn.addEventListener('click', function () {
         if (isRegenTitleInProgress || isRegenInProgress) { return; }
@@ -541,8 +804,7 @@
         updateTitleRegenState();
         var hint = document.getElementById('titleThinkingHint');
         if (hint) { hint.textContent = 'Consultando IA para regenerar titulo...'; hint.style.display = 'block'; }
-        var prompt = document.getElementById('regenPrompt').value || '';
-        var options = buildRegeneratedTitleOptions(prompt);
+        var options = buildRegeneratedTitleOptions('');
         var current = (aiResult.title || '').trim();
         var next = options[titleRegenIndex % options.length];
         if (next.trim() === current) {
@@ -567,8 +829,7 @@
         updateDescRegenState();
         var hint = document.getElementById('descriptionThinkingHint');
         if (hint) { hint.textContent = 'Consultando IA para regenerar descripcion...'; hint.style.display = 'block'; }
-        var prompt = document.getElementById('regenPrompt').value || '';
-        var options = buildRegeneratedDescriptionOptions(prompt);
+        var options = buildRegeneratedDescriptionOptions('');
         var current = (aiResult.description || '').trim();
         var next = options[descriptionRegenIndex % options.length];
         if (next.trim() === current) {
@@ -587,21 +848,17 @@
       });
     }
 
-    /* Hides IA badges after first user edit and persists edited content. */
+    /* Persists edited content on user input. */
     function bindEditing() {
       var titleInput = document.getElementById('titleInput');
       var descInput = document.getElementById('descriptionInput');
-      var titleBadge = document.getElementById('titleIa');
-      var descBadge = document.getElementById('descIa');
 
       titleInput.addEventListener('input', function () {
-        titleBadge.style.display = 'none';
         aiResult.title = titleInput.value;
         setState(StateKeys.aiResult, aiResult);
       });
 
       descInput.addEventListener('input', function () {
-        descBadge.style.display = 'none';
         aiResult.description = descInput.value;
         setState(StateKeys.aiResult, aiResult);
       });
@@ -617,8 +874,6 @@
         setState(StateKeys.aiResult, aiResult);
       }
 
-      document.getElementById('regenPrompt').value = '';
-
       document.getElementById('titleInput').value = aiResult.title || '';
       document.getElementById('descriptionInput').value = aiResult.description || '';
 
@@ -626,11 +881,11 @@
       persistAiResult();
 
       renderVariants();
-      updateImageRegenButtonsState();
       updateTextRegenButtonsState();
       bindEditing();
       bindRegeneration();
       bindPreviewModal();
+      bindEditImageModal();
 
       document.getElementById('publishBtn').addEventListener('click', function () {
         var pending = getState(StateKeys.pendingCount, 42);
